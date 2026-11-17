@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Eclipse.Launcher/Eclipse.Launcher.csproj" />
+  <Project Path="tests/Eclipse.Tests/Eclipse.Tests.csproj" />
+</Solution>

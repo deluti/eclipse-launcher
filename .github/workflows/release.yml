@@ -1,0 +1,50 @@
+name: Windows release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v[0-9]*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows-x86:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build and test
+        shell: pwsh
+        run: |
+          dotnet build tests/Eclipse.Tests/Eclipse.Tests.csproj -c Release --nologo
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+          dotnet tests/Eclipse.Tests/bin/Release/net10.0-windows/Eclipse.Tests.dll
+          if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.1.0' }
+          ./tools/Build-WindowsRelease.ps1 -Version $version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eclipse-launcher-windows-x86
+          path: |
+            artifacts/release/eclipse-launcher-windows-x86.exe
+            artifacts/release/SHA256SUMS.txt
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view $env:GITHUB_REF_NAME *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:GITHUB_REF_NAME artifacts/release/eclipse-launcher-windows-x86.exe artifacts/release/SHA256SUMS.txt --clobber
+          } else {
+            gh release create $env:GITHUB_REF_NAME artifacts/release/eclipse-launcher-windows-x86.exe artifacts/release/SHA256SUMS.txt --title "Eclipse Launcher $env:GITHUB_REF_NAME" --generate-notes
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Release upload failed' }

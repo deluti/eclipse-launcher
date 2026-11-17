@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>Eclipse</AssemblyName>
+    <RootNamespace>Eclipse</RootNamespace>
+    <Version>0.1.0</Version>
+    <Product>Eclipse Launcher</Product>
+    <Company>deluti</Company>
+    <Description>Быстрый лаунчер Minecraft Java Edition</Description>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\Eclipse.ico</ApplicationIcon>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <TieredCompilation>true</TieredCompilation>
+  </PropertyGroup>
+  <ItemGroup><None Include="launcher-config.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\Monocraft.ttf" />
+    <EmbeddedResource Include="Assets\steve.png" />
+    <EmbeddedResource Include="Assets\Eclipse.ico" />
+    <None Include="Assets\Monocraft-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

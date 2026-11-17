@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+artifacts/
+data/
+.test-data/
+manifest-probe.json
+*.user
+.vs/
+.idea/
+*.bin
+*.log
+*.tmp
+.env
+.env.*
