@@ -52,7 +52,7 @@ public sealed class AppearanceService(HttpClient http, AppPaths paths)
     {
         var uri = new Uri(url);
         if (uri.Host != "textures.minecraft.net" || !uri.IsDefaultPort || uri.UserInfo.Length != 0 || uri.Scheme is not ("http" or "https") || !uri.AbsolutePath.StartsWith("/texture/", StringComparison.Ordinal))
-            throw new InvalidDataException("Неизвестный источник текстуры игрока.");
+            throw new InvalidDataException(L.T("Неизвестный источник текстуры игрока."));
         return new UriBuilder(uri) { Scheme = "https", Port = -1 }.Uri;
     }
     public async Task<Bitmap> TextureAsync(PlayerTexture texture, CancellationToken ct)
@@ -72,14 +72,14 @@ public sealed class AppearanceService(HttpClient http, AppPaths paths)
             int count;
             while ((count = await input.ReadAsync(buffer, ct).ConfigureAwait(false)) != 0)
             {
-                if (output.Length + count > 2 * 1024 * 1024) throw new InvalidDataException("Текстура слишком большая.");
+                if (output.Length + count > 2 * 1024 * 1024) throw new InvalidDataException(L.T("Текстура слишком большая."));
                 output.Write(buffer, 0, count);
             }
             bytes = output.ToArray();
         }
         using var stream = new MemoryStream(bytes);
         using var image = Image.FromStream(stream);
-        if (image.Width != 64 || image.Height is not (32 or 64)) throw new InvalidDataException("Неверный размер текстуры игрока.");
+        if (image.Width != 64 || image.Height is not (32 or 64)) throw new InvalidDataException(L.T("Неверный размер текстуры игрока."));
         var bitmap = new Bitmap(image);
         if (!File.Exists(cache))
         {
@@ -91,8 +91,8 @@ public sealed class AppearanceService(HttpClient http, AppPaths paths)
     public async Task<AppearanceProfile> ApplyAsync(LicensedAccount account, PlayerTexture? skin, PlayerTexture? cape, CancellationToken ct)
     {
         var profile = Remember(account);
-        if (skin != null && !profile.Skins.Any(item => item.Url == skin.Url)) throw new InvalidOperationException("Скин отсутствует в гардеробе игрока.");
-        if (cape != null && !profile.Capes.Any(item => item.Id == cape.Id)) throw new InvalidOperationException("Этот плащ не принадлежит игроку.");
+        if (skin != null && !profile.Skins.Any(item => item.Url == skin.Url)) throw new InvalidOperationException(L.T("Скин отсутствует в гардеробе игрока."));
+        if (cape != null && !profile.Capes.Any(item => item.Id == cape.Id)) throw new InvalidOperationException(L.T("Этот плащ не принадлежит игроку."));
         if (skin != null && !profile.Skins.Any(item => item.Url == skin.Url && item.Active))
         {
             var uri = TextureUri(skin.Url);
@@ -103,7 +103,7 @@ public sealed class AppearanceService(HttpClient http, AppPaths paths)
             await MutateAsync(cape == null ? HttpMethod.Delete : HttpMethod.Put, ProfileUrl + "/capes/active", cape == null ? null : new { capeId = cape.Id }, account.AccessToken, ct).ConfigureAwait(false);
         var json = await Network.JsonAsync(http, HttpMethod.Get, ProfileUrl, null, account.AccessToken, ct).ConfigureAwait(false);
         var updated = AppearanceProfile.Parse(json);
-        if (updated.Uuid != account.Uuid) throw new InvalidDataException("Профиль игрока изменился во время запроса.");
+        if (updated.Uuid != account.Uuid) throw new InvalidDataException(L.T("Профиль игрока изменился во время запроса."));
         SaveProfile(updated);
         return updated;
     }
@@ -113,6 +113,6 @@ public sealed class AppearanceService(HttpClient http, AppPaths paths)
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         if (payload != null) request.Content = JsonContent.Create(payload);
         using var response = await http.SendAsync(request, ct).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode) throw new ServiceException("Не удалось изменить внешний вид игрока. HTTP " + (int)response.StatusCode, response.StatusCode);
+        if (!response.IsSuccessStatusCode) throw new ServiceException(L.T("Не удалось изменить внешний вид игрока. HTTP ") + (int)response.StatusCode, response.StatusCode);
     }
 }

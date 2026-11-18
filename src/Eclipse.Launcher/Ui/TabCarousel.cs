@@ -6,6 +6,7 @@ internal readonly record struct HeaderCard(LauncherTab Tab, Rectangle Bounds, fl
 internal sealed class TabCarousel : Control
 {
     private static readonly string[] Names = ["Скриншоты", "Файлы", "Eclipse", "Скины", "Настройки"];
+    internal void RefreshLanguage() { ClearComposition(); Invalidate(); }
     internal const int BaseCardHeight = 100;
     internal const int DefaultHeight = 176;
     internal const int DarkHeaderEnd = 130;
@@ -35,7 +36,7 @@ internal sealed class TabCarousel : Control
     {
         DoubleBuffered = true; ResizeRedraw = true; Height = DefaultHeight;
         SetStyle(ControlStyles.Opaque | ControlStyles.AllPaintingInWmPaint, true);
-        BackColor = PixelTheme.Header; AccessibleName = "Вкладки: A и D, Enter"; Cursor = Cursors.Hand;
+        BackColor = PixelTheme.Header; AccessibleName = L.T("Вкладки: A и D, Enter"); Cursor = Cursors.Hand;
         MouseClick += (_, e) =>
         {
             if (e.X < 44) { MoveSelection(-1); return; }
@@ -217,7 +218,7 @@ internal sealed class TabCarousel : Control
             var growth = 2 - depth;
             var iconSize = 32 + (int)(growth * 8);
             PixelTheme.Icon(g, (int)card.Tab, new Rectangle(r.X, r.Y + 16, r.Width, iconSize), color);
-            PixelTheme.Label(g, Names[(int)card.Tab], new Rectangle(r.X + 18, r.Bottom - 41, r.Width - 36, 32), 14 + growth * 3, color, StringAlignment.Center);
+            PixelTheme.Label(g, L.T(Names[(int)card.Tab]), new Rectangle(r.X + 18, r.Bottom - 41, r.Width - 36, 32), 14 + growth * 3, color, StringAlignment.Center);
             if ((int)card.Tab == focus)
             {
                 using var accent = new SolidBrush(PixelTheme.Accent);

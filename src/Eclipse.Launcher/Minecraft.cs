@@ -27,6 +27,7 @@ public sealed class InstallPlan
 public sealed class Minecraft(HttpClient http, AppPaths paths)
 {
     internal PlaytimeCounter Playtime { get; } = new(paths);
+    internal event Action? GameStarted;
     public const string ManifestUrl = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
     private const string RuntimeUrl = "https://piston-meta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
 
@@ -44,8 +45,8 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
     {
         // A 32-bit launcher can start the separate 64-bit Java process on 64-bit Windows.
         if (RuntimeInformation.OSArchitecture != Architecture.X64)
-            throw new PlatformNotSupportedException("Для запуска Minecraft требуется 64-битная Windows (x64).");
-        if (!Regex.IsMatch(version, "\\A[A-Za-z0-9_.+-]+\\z")) throw new InvalidDataException("Недопустимая версия.");
+            throw new PlatformNotSupportedException(L.T("Для запуска Minecraft требуется 64-битная Windows (x64)."));
+        if (!Regex.IsMatch(version, "\\A[A-Za-z0-9_.+-]+\\z")) throw new InvalidDataException(L.T("Недопустимая версия."));
         var planPath = AppPaths.SafeChild(paths.Root, $"plans/{version}.json");
         var downloads = new Downloads(http, paths);
         InstallPlan? plan = null;
@@ -59,7 +60,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
         if (ModdedProfile.ReadAll(paths).FirstOrDefault(p => p.Id == version) is { } profile)
             return await new ModLoaders(http, paths, this).InstallAsync(profile.Loader, profile.GameVersion, profile.LoaderVersion, progress, ct).ConfigureAwait(false);
 
-        progress.Report("Получение описания Minecraft " + version + "…");
+        progress.Report(L.T("Получение описания Minecraft ") + version + "…");
         var manifest = await VersionsAsync(false, ct).ConfigureAwait(false);
         var entry = manifest.GetProperty("versions").EnumerateArray().FirstOrDefault(v => v.Text("id") == version);
         if (entry.ValueKind == JsonValueKind.Undefined)
@@ -71,7 +72,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
         var metadata = await ReadVerifiedJsonAsync(entry.Text("url"), entry.Text("sha1"), ct).ConfigureAwait(false);
         if (!metadata.TryGetProperty("arguments", out var arguments) || !metadata.TryGetProperty("javaVersion", out var javaVersion)
             || javaVersion.GetProperty("majorVersion").GetInt32() < 17)
-            throw new NotSupportedException("Сейчас поддерживаются версии Minecraft 1.18 и новее.");
+            throw new NotSupportedException(L.T("Сейчас поддерживаются версии Minecraft 1.18 и новее."));
         plan = new InstallPlan
         {
             Version = version, MainClass = metadata.Text("mainClass"),
@@ -109,7 +110,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
         var index = JsonSerializer.Deserialize<JsonElement>(await File.ReadAllTextAsync(AppPaths.SafeChild(paths.Root, indexPath), ct).ConfigureAwait(false));
         if ((index.TryGetProperty("virtual", out var virtualFlag) && virtualFlag.GetBoolean())
             || (index.TryGetProperty("map_to_resources", out var map) && map.GetBoolean()))
-            throw new NotSupportedException("Старый формат ресурсов пока не поддерживается.");
+            throw new NotSupportedException(L.T("Старый формат ресурсов пока не поддерживается."));
         foreach (var asset in index.GetProperty("objects").EnumerateObject())
         {
             var hash = asset.Value.Text("hash");
@@ -117,11 +118,11 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
                 $"game/assets/objects/{hash[..2]}/{hash}", hash, asset.Value.GetProperty("size").GetInt64()));
         }
 
-        progress.Report("Подготовка официальной Java…");
+        progress.Report(L.T("Подготовка официальной Java…"));
         var component = javaVersion.Text("component");
         var runtimes = await Network.JsonAsync(http, HttpMethod.Get, RuntimeUrl, null, null, ct).ConfigureAwait(false);
         var runtime = runtimes.GetProperty("windows-x64").GetProperty(component).EnumerateArray().FirstOrDefault();
-        if (runtime.ValueKind == JsonValueKind.Undefined) throw new NotSupportedException("Mojang не опубликовала нужную Java для Windows x64.");
+        if (runtime.ValueKind == JsonValueKind.Undefined) throw new NotSupportedException(L.T("Mojang не опубликовала нужную Java для Windows x64."));
         var runtimeManifest = runtime.GetProperty("manifest");
         var runtimeJson = await ReadVerifiedJsonAsync(runtimeManifest.Text("url"), runtimeManifest.Text("sha1"), ct).ConfigureAwait(false);
         var runtimeRoot = $"runtime/{component}";
@@ -134,7 +135,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
                     plan.Files.Add(FromMetadata(file.Value.GetProperty("downloads").GetProperty("raw"), runtimeRoot + "/" + file.Name));
                     break;
                 case "directory": break;
-                default: throw new NotSupportedException("Неизвестный тип файла в описании Java. Установка остановлена.");
+                default: throw new NotSupportedException(L.T("Неизвестный тип файла в описании Java. Установка остановлена."));
             }
         }
         if (metadata.TryGetProperty("logging", out var logging) && logging.TryGetProperty("client", out var log))
@@ -154,10 +155,10 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
     {
         var uri = new Uri(url);
         if (uri.Scheme != "https" || uri.Host is not ("piston-meta.mojang.com" or "launchermeta.mojang.com"))
-            throw new InvalidDataException("Неизвестный источник метаданных Mojang.");
+            throw new InvalidDataException(L.T("Неизвестный источник метаданных Mojang."));
         var bytes = await http.GetByteArrayAsync(uri, ct).ConfigureAwait(false);
         if (!Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(bytes)).Equals(sha1, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("Контрольная сумма описания Mojang не совпала.");
+            throw new InvalidDataException(L.T("Контрольная сумма описания Mojang не совпала."));
         return JsonSerializer.Deserialize<JsonElement>(bytes);
     }
 
@@ -228,7 +229,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
         // Revalidate after a potentially long first installation. Never accept a cached ownership flag.
         if (DateTimeOffset.UtcNow - account.VerifiedAt > TimeSpan.FromSeconds(60))
         {
-            progress.Report("Повторная проверка лицензии перед запуском…");
+            progress.Report(L.T("Повторная проверка лицензии перед запуском…"));
             account = await LicensedAccount.VerifyAsync(http, account.AccessToken, ct, account.ClientId, account.Xuid).ConfigureAwait(false);
         }
         ct.ThrowIfCancellationRequested();
@@ -248,10 +249,12 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
         var info = await CreateStartInfoAsync(plan, account, memoryMb, ct, options).ConfigureAwait(false);
         Directory.CreateDirectory(paths.FilePath("logs"));
         await using var log = new StreamWriter(paths.FilePath("logs/game-latest.log"), false, new UTF8Encoding(false)) { AutoFlush = true };
-        progress.Report("Запуск Minecraft…");
-        using var process = Process.Start(info) ?? throw new InvalidOperationException("Не удалось запустить Java.");
+        progress.Report(L.T("Запуск Minecraft…"));
+        ct.ThrowIfCancellationRequested();
+        using var process = Process.Start(info) ?? throw new InvalidOperationException(L.T("Не удалось запустить Java."));
         using var played = Playtime.BeginSession();
-        progress.Report("Minecraft запущен. PID " + process.Id);
+        GameStarted?.Invoke();
+        progress.Report(L.T("Minecraft запущен. PID ") + process.Id);
         using var gate = new SemaphoreSlim(1);
         async Task Pump(StreamReader reader)
         {
@@ -293,7 +296,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
             ["auth_xuid"] = account.Xuid, ["user_type"] = account.UserType, ["version_type"] = "release", ["user_properties"] = "{}"
         };
         string Expand(string value) => Regex.Replace(value, @"\$\{([^}]+)\}", match => variables.TryGetValue(match.Groups[1].Value, out var replacement)
-            ? replacement : throw new NotSupportedException("Неизвестный аргумент Minecraft: " + match.Groups[1].Value));
+            ? replacement : throw new NotSupportedException(L.T("Неизвестный аргумент Minecraft: ") + match.Groups[1].Value));
         var jvm = plan.JvmArguments.Select(Expand).ToList();
         jvm.Add("-Xms256M");
         jvm.Add("-Xmx" + Math.Clamp(memoryMb, 1024, 32768) + "M");

@@ -4,10 +4,10 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>Eclipse</AssemblyName>
     <RootNamespace>Eclipse</RootNamespace>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <Product>Eclipse Launcher</Product>
     <Company>deluti</Company>
-    <Description>Быстрый лаунчер Minecraft Java Edition</Description>
+    <Description>Fast Minecraft Java Edition launcher</Description>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\Eclipse.ico</ApplicationIcon>
     <ServerGarbageCollection>false</ServerGarbageCollection>
@@ -15,6 +15,7 @@
   </PropertyGroup>
   <ItemGroup><None Include="launcher-config.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Localization\en.json" />
     <EmbeddedResource Include="Assets\Monocraft.ttf" />
     <EmbeddedResource Include="Assets\steve.png" />
     <EmbeddedResource Include="Assets\Eclipse.ico" />

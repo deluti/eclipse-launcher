@@ -24,7 +24,7 @@ internal static class OAuthRegistration
         deadline.CancelAfter(TimeSpan.FromSeconds(25));
         for (var step = 0; step < 8; step++)
         {
-            if (!IsMicrosoft(current)) throw new OAuthConfigurationException("Microsoft вернул неизвестный адрес входа. Проверьте регистрацию приложения.");
+            if (!IsMicrosoft(current)) throw new OAuthConfigurationException(L.T("Microsoft вернул неизвестный адрес входа. Проверьте регистрацию приложения."));
             using var response = await http.GetAsync(current, HttpCompletionOption.ResponseHeadersRead, deadline.Token).ConfigureAwait(false);
             if ((int)response.StatusCode is >= 300 and < 400 && response.Headers.Location is { } location)
             {
@@ -41,22 +41,22 @@ internal static class OAuthRegistration
                 if (message.Contains("redirect_uri", StringComparison.OrdinalIgnoreCase) || message.Contains("client_id", StringComparison.OrdinalIgnoreCase)) throw ConfigurationError(callback);
             }
             if (content.Contains("AADSTS50011", StringComparison.Ordinal) || content.Contains("AADSTS700016", StringComparison.Ordinal)) throw ConfigurationError(callback);
-            if (!response.IsSuccessStatusCode) throw new ServiceException("Сервис входа Microsoft временно недоступен. Повторите попытку.", response.StatusCode);
+            if (!response.IsSuccessStatusCode) throw new ServiceException(L.T("Сервис входа Microsoft временно недоступен. Повторите попытку."), response.StatusCode);
             return;
         }
-        throw new OAuthConfigurationException("Слишком много перенаправлений Microsoft. Проверьте регистрацию приложения.");
+        throw new OAuthConfigurationException(L.T("Слишком много перенаправлений Microsoft. Проверьте регистрацию приложения."));
     }
 
     internal static bool IsMicrosoft(Uri uri) => uri.Scheme == "https" && uri.IsDefaultPort && string.IsNullOrEmpty(uri.UserInfo)
         && uri.Host is "login.microsoftonline.com" or "login.live.com" or "login.microsoft.com" or "account.live.com";
 
     private static OAuthConfigurationException ConfigurationError(Uri callback) => new(
-        "В регистрации Microsoft не настроен адрес возврата для Eclipse.\n\n" +
-        "Microsoft Entra → Регистрации приложений → ваше приложение → Проверка подлинности:\n" +
-        "1. Добавьте платформу «Мобильные и классические приложения».\n" +
-        "2. Добавьте URI http://localhost (http, без порта).\n" +
-        "3. Разрешите общедоступные клиентские потоки и сохраните.\n\n" +
-        "После сохранения повторите вход.\nАдрес текущей попытки: " + callback.AbsoluteUri);
+        L.T("В регистрации Microsoft не настроен адрес возврата для Eclipse.\n\n") +
+        L.T("Microsoft Entra → Регистрации приложений → ваше приложение → Проверка подлинности:\n") +
+        L.T("1. Добавьте платформу «Мобильные и классические приложения».\n") +
+        L.T("2. Добавьте URI http://localhost (http, без порта).\n") +
+        L.T("3. Разрешите общедоступные клиентские потоки и сохраните.\n\n") +
+        L.T("После сохранения повторите вход.\nАдрес текущей попытки: ") + callback.AbsoluteUri);
 
     private static async Task<string> ReadBoundedAsync(HttpContent content, CancellationToken ct)
     {

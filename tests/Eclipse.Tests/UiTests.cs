@@ -8,7 +8,7 @@ internal static class UiTests
     [DllImport("gdi32.dll", CharSet = CharSet.Unicode)] private static extern uint GetGlyphIndices(IntPtr dc, string text, int count, ushort[] glyphs, uint flags);
     [DllImport("gdi32.dll")] private static extern IntPtr SelectObject(IntPtr dc, IntPtr value);
     [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr value);
-    public static int Run(string root, string screenshotDirectory)
+    public static int Run(string root, string screenshotDirectory, string language = "ru")
     {
         Exception? failure = null;
         var thread = new Thread(() =>
@@ -16,7 +16,9 @@ internal static class UiTests
             try
             {
                 Application.SetHighDpiMode(HighDpiMode.SystemAware); Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
+                L.SetLanguage("en");
                 var paths = new AppPaths(Path.Combine(root, "ui", Guid.NewGuid().ToString("N")));
+                JsonStore.Write(paths.FilePath("settings.json"), new Settings { Language = language });
                 Directory.CreateDirectory(paths.Game);
                 File.WriteAllText(Path.Combine(paths.Game, "options.txt"), "lang:ru_ru\r\nrenderDistance:12\r\n");
                 Directory.CreateDirectory(Path.Combine(paths.Game, "screenshots"));
@@ -40,7 +42,9 @@ internal static class UiTests
                     {
                         for (var i = 0; !form.Ready && i < 200; i++) await Task.Delay(25);
                         Check(form.Ready, "Window initialization");
+                        Check(L.Language == language, "The saved language is restored from disk after a fresh English startup");
                         await CheckUpdateAndHoursAsync(form, updateHandler);
+                        await CheckLanguageSwitchAsync(form, paths, language);
                         await CheckAnimationAsync(form, screenshotDirectory);
                         await CheckRotationAsync(form, screenshotDirectory);
                         CheckSoundFeedback();
@@ -64,7 +68,7 @@ internal static class UiTests
                         }
                         Check(!Find<Label>(form).Any(l => l.Text.Contains("ОТКРЫТЬ") || l.Text.Contains("ВЫБОР")), "No bottom-right keyboard hint remains");
                         Capture(form, screenshotDirectory, "eclipse");
-                        var versionSelector = Find<PixelComboBox>(form).Single();
+                        var versionSelector = Find<PixelComboBox>(form).Single(c => c.AccessibleName == L.T("Версия Minecraft"));
                         typeof(PixelComboBox).GetMethod("Open", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(versionSelector, null);
                         Check(versionSelector.DroppedDown, "Pixel version dropdown opens");
                         var popup = (ToolStripDropDown)typeof(PixelComboBox).GetField("popup", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(versionSelector)!;
@@ -97,26 +101,26 @@ internal static class UiTests
                         Command(form, Keys.D); Command(form, Keys.Enter); await Task.Delay(250);
                         var settingsPage = Find<SettingsPage>(form).Single();
                         Check(settingsPage.Visible && form.Navigation.ActiveTab == LauncherTab.Settings, "Fifth tab is settings");
-                        var memory = Find<TextBox>(settingsPage).Single(t => t.AccessibleName == "Память Minecraft, МБ"); memory.Text = "6144";
-                        var nickname = Find<TextBox>(settingsPage).Single(t => t.AccessibleName == "Никнейм");
+                        var memory = Find<TextBox>(settingsPage).Single(t => t.AccessibleName == L.T("Память Minecraft, МБ")); memory.Text = "6144";
+                        var nickname = Find<TextBox>(settingsPage).Single(t => t.AccessibleName == L.T("Никнейм"));
                         nickname.Focus();
                         Check(!Command(form, Keys.A), "Typing A in nickname does not switch tabs");
                         nickname.Text = "EclipsePlayer";
-                        var loginMode = Find<PixelComboBox>(settingsPage).Single(c => c.AccessibleName == "Способ входа");
+                        var loginMode = Find<PixelComboBox>(settingsPage).Single(c => c.AccessibleName == L.T("Способ входа"));
                         Check(loginMode.SelectedIndex == 0 && nickname.Enabled, "Nickname login is available without Microsoft configuration");
-                        Find<PixelButton>(settingsPage).Single(b => b.Text == "Сохранить").PerformClick();
+                        Find<PixelButton>(settingsPage).Single(b => b.Text == L.T("Сохранить")).PerformClick();
                         Check(JsonStore.Read<Settings>(paths.FilePath("settings.json"))!.MemoryMb == 6144, "Memory setting persists");
                         var savedIdentity = JsonStore.Read<Settings>(paths.FilePath("settings.json"))!;
                         Check(savedIdentity.OfflineMode && savedIdentity.Nickname == "EclipsePlayer", "Nickname and local mode persist");
-                        Check(Find<PixelButton>(form).Single(b => b.AccessibleName == "Настройки никнейма").Text == "EclipsePlayer", "Header uses the saved nickname");
-                        var sounds = Find<CheckBox>(settingsPage).Single(c => c.Text == "Звуки интерфейса");
+                        Check(Find<PixelButton>(form).Single(b => b.AccessibleName == L.T("Настройки никнейма")).Text == "EclipsePlayer", "Header uses the saved nickname");
+                        var sounds = Find<CheckBox>(settingsPage).Single(c => c.Text == L.T("Звуки интерфейса"));
                         Check(sounds.Checked, "Interface sounds default on");
                         sounds.Checked = false;
                         Check(!UiSounds.Enabled, "Sound toggle mutes immediately");
-                        Find<PixelButton>(settingsPage).Single(b => b.Text == "Сохранить").PerformClick();
+                        Find<PixelButton>(settingsPage).Single(b => b.Text == L.T("Сохранить")).PerformClick();
                         Check(!JsonStore.Read<Settings>(paths.FilePath("settings.json"))!.InterfaceSounds, "Mute setting persists");
                         sounds.Checked = true;
-                        Find<PixelButton>(settingsPage).Single(b => b.Text == "Сохранить").PerformClick();
+                        Find<PixelButton>(settingsPage).Single(b => b.Text == L.T("Сохранить")).PerformClick();
                         form.Navigation.Focus();
                         Capture(form, screenshotDirectory, "settings");
                         Command(form, Keys.D); Command(form, Keys.Enter); await Task.Delay(350);
@@ -134,20 +138,20 @@ internal static class UiTests
                         editor.Focus();
                         Check(!Command(form, Keys.A), "Typing A in editor does not switch tabs");
                         editor.Text = editor.Text.Replace("renderDistance:12", "renderDistance:18");
-                        Find<PixelButton>(files).Single(b => b.Text == "Сохранить").PerformClick();
+                        Find<PixelButton>(files).Single(b => b.Text == L.T("Сохранить")).PerformClick();
                         Check(File.ReadAllText(Path.Combine(paths.Game, "options.txt")).Contains("renderDistance:18"), "File changes save");
                         Capture(form, screenshotDirectory, "files");
                         form.Navigation.Focus(); Command(form, Keys.D); Command(form, Keys.Enter); await Task.Delay(250);
-                        var nicknameButton = Find<PixelButton>(form).Single(b => b.AccessibleName == "Настройки никнейма");
+                        var nicknameButton = Find<PixelButton>(form).Single(b => b.AccessibleName == L.T("Настройки никнейма"));
                         nicknameButton.PerformClick(); await Task.Delay(100);
                         Check(form.Navigation.ActiveTab == LauncherTab.Settings, "Nickname button opens settings");
                         loginMode.SelectedIndex = 1;
                         Check(!nickname.Enabled, "Nickname is disabled for a Microsoft account");
-                        Find<PixelButton>(settingsPage).Single(b => b.Text == "Сохранить").PerformClick();
-                        var login = Find<PixelButton>(form).Single(b => b.AccessibleName == "Войти через Microsoft"); login.PerformClick(); await Task.Delay(150);
-                        Check(Find<Label>(form).Any(l => l.Text == "Вход Microsoft ещё не настроен"), "Unconfigured login fails visibly");
+                        Find<PixelButton>(settingsPage).Single(b => b.Text == L.T("Сохранить")).PerformClick();
+                        var login = Find<PixelButton>(form).Single(b => b.AccessibleName == L.T("Войти через Microsoft")); login.PerformClick(); await Task.Delay(150);
+                        Check(Find<Label>(form).Any(l => l.Text == L.T("Вход Microsoft ещё не настроен")), "Unconfigured login fails visibly");
                         loginMode.SelectedIndex = 0;
-                        Find<PixelButton>(settingsPage).Single(b => b.Text == "Сохранить").PerformClick();
+                        Find<PixelButton>(settingsPage).Single(b => b.Text == L.T("Сохранить")).PerformClick();
                         form.Size = new Size(1040, 720); await Task.Delay(100); Capture(form, screenshotDirectory, "compact");
                         foreach (var size in new[] { new Size(1040, 720), new Size(1280, 850) })
                         {
@@ -174,10 +178,10 @@ internal static class UiTests
                                     foreach (var control in Find<PixelButton>(page).Cast<Control>().Concat(Find<TextBox>(page)).Concat(Find<PixelComboBox>(page)).Concat(Find<CheckBox>(page))) CheckUnclipped(control);
                                     CheckSettingsOverlap(page);
                                 }
-                                if (tab == LauncherTab.Skins) CheckUnclipped(Find<PixelButton>(page).Single(b => b.Text == "Применить"));
+                                if (tab == LauncherTab.Skins) CheckUnclipped(Find<PixelButton>(page).Single(b => b.Text == L.T("Применить")));
                                 if (tab == LauncherTab.Eclipse)
                                 {
-                                    var play = Find<PixelButton>(page).Single(b => b.AccessibleName == "Играть");
+                                    var play = Find<PixelButton>(page).Single(b => b.AccessibleName == L.T("Играть"));
                                     var model = Find<SkinScene>(page).Single();
                                     CheckUnclipped(play); CheckUnclipped(Find<PixelComboBox>(page).Single());
                                     Check(model.RectangleToScreen(model.ClientRectangle).Bottom <= play.RectangleToScreen(play.ClientRectangle).Top, "Character scene and Play do not overlap");
@@ -232,6 +236,42 @@ internal static class UiTests
         Check(bodyParticles > 0, "Particles continue into the main scene toward Steve's head");
     }
     private static bool IsAmbientGreen(Color color) => color.G >= 27 && color.G > color.R * 1.3f && color.G > color.B * 1.45f;
+    private static async Task CheckLanguageSwitchAsync(MainForm form, AppPaths paths, string originalLanguage)
+    {
+        var scene = Find<SkinScene>(form).Single();
+        var pose = scene.Pose;
+        form.Navigation.Open(LauncherTab.Settings);
+        await Task.Delay(80);
+        var page = Find<SettingsPage>(form).Single();
+        var memory = Find<TextBox>(page).Single(t => t.AccessibleName == L.T("Память Minecraft, МБ"));
+        var nickname = Find<TextBox>(page).Single(t => t.AccessibleName == L.T("Никнейм"));
+        var selector = Find<PixelComboBox>(page).Single(c => c.AccessibleName == L.T("Язык"));
+        var previousMemory = memory.Text; var previousName = nickname.Text;
+        memory.Text = "7168"; nickname.Text = "Unsaved_Name";
+        var other = originalLanguage == "en" ? "ru" : "en";
+        selector.SelectedIndex = other == "ru" ? 1 : 0;
+        Check(L.Language == other && JsonStore.Read<Settings>(paths.FilePath("settings.json"))!.Language == other, "Language selection applies and persists immediately");
+        Check(memory.Text == "7168" && nickname.Text == "Unsaved_Name", "Switching language preserves unsaved input");
+        Check(scene.Pose == pose, "Language switching must not recreate the character scene");
+        Check(Find<PixelButton>(form).Single(b => b.AccessibleName == L.T("Играть")).Text == L.T("ИГРАТЬ"), "The existing home page updates in place");
+        Check(Find<PixelButton>(page).Any(b => b.Text == L.T("Сохранить")), "Existing settings controls update in place");
+        using (var userContent = new Panel())
+        {
+            var label = new Label { Text = L.T("Выберите файл") };
+            var editor = new TextBox { Text = "Сохранить" };
+            userContent.Controls.Add(label); userContent.Controls.Add(editor); L.CaptureTree(userContent);
+            L.PreserveUserText(label); label.Text = "Settings";
+            selector.SelectedIndex = originalLanguage == "ru" ? 1 : 0;
+            L.RefreshTree(userContent);
+            Check(label.Text == "Settings" && editor.Text == "Сохранить", "File names and editor contents are never translated");
+        }
+        memory.Text = previousMemory; nickname.Text = previousName;
+        Check(L.Language == originalLanguage && JsonStore.Read<Settings>(paths.FilePath("settings.json"))!.Language == originalLanguage, "Both language directions persist");
+        form.Navigation.Open(LauncherTab.Eclipse);
+        await Task.Delay(250);
+        form.Navigation.Focus();
+        Console.WriteLine("PASS localization: live English/Russian switch, persistence, untouched input and character pose");
+    }
     private sealed class UpdateHandler : HttpMessageHandler
     {
         internal readonly TaskCompletionSource<HttpResponseMessage> Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -239,20 +279,20 @@ internal static class UiTests
     }
     private static async Task CheckUpdateAndHoursAsync(MainForm form, UpdateHandler handler)
     {
-        var update = Find<PixelButton>(form).Single(b => b.AccessibleName == "Обновить лаунчер");
-        Check(!update.Visible && Find<PixelButton>(form).Single(b => b.AccessibleName == "Играть").Enabled, "A slow update server cannot delay Ready or Play");
+        var update = Find<PixelButton>(form).Single(b => b.AccessibleName == L.T("Обновить лаунчер"));
+        Check(!update.Visible && Find<PixelButton>(form).Single(b => b.AccessibleName == L.T("Играть")).Enabled, "A slow update server cannot delay Ready or Play");
         handler.Pending.SetResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(LauncherFeatureTests.Metadata("v99.0.0")) });
         for (var i = 0; !update.Visible && i < 100; i++) await Task.Delay(10);
         Check(update.Visible && update.Enabled && update.Primary, "A newer release shows one green update button");
-        var identity = Find<PixelButton>(form).Single(b => b.AccessibleName == "Настройки никнейма");
+        var identity = Find<PixelButton>(form).Single(b => b.AccessibleName == L.T("Настройки никнейма"));
         Check(update.Parent == identity.Parent && update.Right <= identity.Left, "Update sits to the left of nickname");
-        Check(form.HoursBadge.AccessibleName.Contains("1,2 ч"), "Saved hours use one Russian decimal");
+        Check(form.HoursBadge.AccessibleName.Contains(PlaytimeCounter.Format(4444.4 / 3600)), "Saved hours use the selected language");
         CheckLaunchBadge(form);
         Console.WriteLine("PASS updates/hours: asynchronous startup check, green header button, saved hours and overlapping Play badge");
     }
     private static void CheckLaunchBadge(MainForm form)
     {
-        var play = Find<PixelButton>(form).Single(b => b.AccessibleName == "Играть");
+        var play = Find<PixelButton>(form).Single(b => b.AccessibleName == L.T("Играть"));
         var badge = form.HoursBadge;
         var version = Find<PixelComboBox>(play.Parent!).Single();
         Check(Rectangle.Intersect(play.Bounds, badge.Bounds).Height == 12, "Play slightly overlaps the hour plaque");
@@ -274,7 +314,7 @@ internal static class UiTests
         using var http = new HttpClient(new InstallerHandler());
         using var dialog = new VersionInstallerDialog(new ModLoaders(http, paths, new Minecraft(http, paths)), ["fixture"], "fixture");
         dialog.Show(owner);
-        var install = Find<PixelButton>(dialog).Single(b => b.Text == "Установить");
+        var install = Find<PixelButton>(dialog).Single(b => b.Text == L.T("Установить"));
         for (var i = 0; !install.Enabled && i < 100; i++) await Task.Delay(10);
         Check(install.Enabled, "Installer loads compatible loader versions");
         foreach (var control in dialog.Controls.Cast<Control>()) CheckUnclipped(control);
@@ -361,8 +401,8 @@ internal static class UiTests
     }
     private static void CheckSpaceLaunch(MainForm form)
     {
-        var play = Find<PixelButton>(form).Single(b => b.AccessibleName == "Играть");
-        var versions = Find<PixelComboBox>(form).Single();
+        var play = Find<PixelButton>(form).Single(b => b.AccessibleName == L.T("Играть"));
+        var versions = Find<PixelComboBox>(form).Single(c => c.AccessibleName == L.T("Версия Minecraft"));
         var operationField = typeof(MainForm).GetField("operation", BindingFlags.NonPublic | BindingFlags.Instance)!;
         Check(operationField.GetValue(form) == null, "No operation is active before the hotkey test");
         using var guard = new CancellationTokenSource();
@@ -498,12 +538,12 @@ internal static class UiTests
         Func<CancellationToken, Task> action = ct => Task.Delay(Timeout.Infinite, ct);
         var pending = (Task)typeof(MainForm).GetMethod("RunAsync", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(form, [action])!;
         await Task.Delay(30);
-        var cancel = Find<PixelButton>(form).Single(b => b.Text == "Отмена");
+        var cancel = Find<PixelButton>(form).Single(b => b.Text == L.T("Отмена"));
         Check(cancel.Visible && cancel.Enabled, "Cancellation is available during an active operation");
         CheckUnclipped(cancel);
         var status = cancel.Parent!.Controls.OfType<Label>().Single();
         Check(!cancel.Bounds.IntersectsWith(status.Bounds), "Cancel and status do not overlap");
-        var login = Find<PixelButton>(form).Single(b => b.AccessibleName is "Войти через Microsoft" or "Настройки никнейма");
+        var login = Find<PixelButton>(form).Single(b => b.AccessibleName == L.T("Войти через Microsoft") || b.AccessibleName == L.T("Настройки никнейма"));
         var chromeButtons = login.Parent!.Controls.OfType<PixelButton>().Where(b => b.Visible).ToArray();
         foreach (var button in chromeButtons) CheckUnclipped(button);
         for (var i = 0; i < chromeButtons.Length; i++)

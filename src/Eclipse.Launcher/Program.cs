@@ -18,7 +18,7 @@ internal static class Program
             var paths = new AppPaths(root);
             using var instance = new Mutex(true, "Local\\EclipseLauncher-" + Convert.ToHexString(
                 System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(paths.Root.ToUpperInvariant())))[..20], out var first);
-            if (!first) { MessageBox.Show("Eclipse уже открыт для этой папки данных.", "Eclipse"); return; }
+            if (!first) { MessageBox.Show(L.T("Eclipse уже открыт для этой папки данных."), "Eclipse"); return; }
             using var window = new MainForm(paths, args.Contains("--smoke-test"));
             if (!args.Contains("--smoke-test")) window.Shown += (_, _) => UiSounds.Start();
             try { Application.Run(window); }
@@ -26,7 +26,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Не удалось открыть Eclipse: " + ex.Message, "Eclipse", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(L.T("Не удалось открыть Eclipse: ") + ex.Message, "Eclipse", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

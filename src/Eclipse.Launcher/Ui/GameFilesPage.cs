@@ -7,8 +7,8 @@ internal sealed class GameFilesPage : UserControl
     private readonly string root;
     private readonly TreeView tree = new() { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, HideSelection = false, ShowLines = false, ShowPlusMinus = true, FullRowSelect = true, ItemHeight = 29, Indent = 22 };
     private readonly TextBox editor = new() { Dock = DockStyle.Fill, Multiline = true, AcceptsTab = true, AcceptsReturn = true, ScrollBars = ScrollBars.Both, WordWrap = false, BorderStyle = BorderStyle.None, MaxLength = 4 * 1024 * 1024 };
-    private readonly Label filename = PixelTheme.TextLabel("Выберите файл");
-    private readonly PixelButton save = new() { Text = "Сохранить", Width = 150, Dock = DockStyle.Right, Enabled = false };
+    private readonly Label filename = PixelTheme.TextLabel(L.T("Выберите файл"));
+    private readonly PixelButton save = new() { Text = L.T("Сохранить"), Width = 150, Dock = DockStyle.Right, Enabled = false };
     private readonly Action<string> report;
     private EditableGameFile? document;
     private bool dirty;
@@ -28,10 +28,10 @@ internal sealed class GameFilesPage : UserControl
         filebar.Controls.Add(filename); filebar.Controls.Add(save);
         split.Panel2.Controls.Add(editor); split.Panel2.Controls.Add(filebar);
         var bar = new Panel { Dock = DockStyle.Top, Height = 58, Padding = new Padding(8) };
-        var title = PixelTheme.TextLabel("ФАЙЛЫ MINECRAFT", 16); title.Location = new Point(24, 18);
-        var refresh = new PixelButton { Text = "Обновить", Dock = DockStyle.Right, Width = 145 };
-        var folder = new PixelButton { Text = "Папка", Dock = DockStyle.Right, Width = 110 };
-        var mods = new PixelButton { Text = "Моды", Dock = DockStyle.Right, Width = 100 };
+        var title = PixelTheme.TextLabel(L.T("ФАЙЛЫ MINECRAFT"), 16); title.Location = new Point(24, 18);
+        var refresh = new PixelButton { Text = L.T("Обновить"), Dock = DockStyle.Right, Width = 145 };
+        var folder = new PixelButton { Text = L.T("Папка"), Dock = DockStyle.Right, Width = 110 };
+        var mods = new PixelButton { Text = L.T("Моды"), Dock = DockStyle.Right, Width = 100 };
         mods.Click += (_, _) => { var directory = Path.Combine(root, "mods"); Directory.CreateDirectory(directory); Process.Start(new ProcessStartInfo(directory) { UseShellExecute = true }); };
         bar.Controls.Add(title); bar.Controls.Add(mods); bar.Controls.Add(folder); bar.Controls.Add(refresh);
         Controls.Add(split); Controls.Add(bar);
@@ -52,6 +52,7 @@ internal sealed class GameFilesPage : UserControl
                 var loaded = await Task.Run(() => GameFiles.Read(root, path));
                 if (IsDisposed) return;
                 binding = true; document = loaded; editor.Enabled = true; editor.Text = loaded.Text;
+                L.PreserveUserText(filename);
                 filename.Text = Path.GetRelativePath(root, path); dirty = false; save.Enabled = false;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { report(ex.Message); }
@@ -65,7 +66,7 @@ internal sealed class GameFilesPage : UserControl
     public bool ConfirmLeave()
     {
         if (!dirty) return true;
-        var answer = PixelDialog.Ask(FindForm(), "Сохранить изменения?", filename.Text);
+        var answer = PixelDialog.Ask(FindForm(), L.T("Сохранить изменения?"), filename.Text);
         if (answer == DialogResult.Cancel) return false;
         if (answer == DialogResult.Yes) { Save(); return !dirty; }
         return true;
@@ -73,13 +74,13 @@ internal sealed class GameFilesPage : UserControl
     private void Save()
     {
         if (document == null || !dirty) return;
-        try { document = GameFiles.Save(root, document, editor.Text); dirty = false; save.Enabled = false; report("Файл сохранён"); }
+        try { document = GameFiles.Save(root, document, editor.Text); dirty = false; save.Enabled = false; report(L.T("Файл сохранён")); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { report(ex.Message); }
     }
     public async Task ReloadAsync()
     {
         if (!ConfirmLeave()) return;
-        dirty = false; save.Enabled = false; editor.Clear(); document = null; editor.Enabled = false; filename.Text = "Выберите файл";
+        dirty = false; save.Enabled = false; editor.Clear(); document = null; editor.Enabled = false; L.SetText(filename, "Выберите файл");
         Directory.CreateDirectory(root);
         tree.Nodes.Clear();
         var node = new TreeNode("minecraft") { Tag = root };
@@ -118,12 +119,12 @@ internal sealed class PixelDialog : Form
         ClientSize = new Size(620, tall ? 460 : 230); FormBorderStyle = FormBorderStyle.FixedDialog; StartPosition = FormStartPosition.CenterParent; MinimizeBox = MaximizeBox = false;
         var label = new Label { Text = message, Font = PixelTheme.Font(), ForeColor = PixelTheme.Text, Bounds = new Rectangle(24, 24, 572, tall ? 348 : 132) };
         Controls.Add(label);
-        var ok = new PixelButton { Text = ask ? "Сохранить" : "Закрыть", Bounds = new Rectangle(440, tall ? 396 : 172, 150, 42), Primary = true, DialogResult = ask ? DialogResult.Yes : DialogResult.OK };
+        var ok = new PixelButton { Text = ask ? L.T("Сохранить") : L.T("Закрыть"), Bounds = new Rectangle(440, tall ? 396 : 172, 150, 42), Primary = true, DialogResult = ask ? DialogResult.Yes : DialogResult.OK };
         Controls.Add(ok); AcceptButton = ok;
         if (ask)
         {
-            var no = new PixelButton { Text = "Не сохранять", Bounds = new Rectangle(260, 172, 170, 42), DialogResult = DialogResult.No };
-            var cancel = new PixelButton { Text = "Отмена", Bounds = new Rectangle(100, 172, 150, 42), DialogResult = DialogResult.Cancel };
+            var no = new PixelButton { Text = L.T("Не сохранять"), Bounds = new Rectangle(260, 172, 170, 42), DialogResult = DialogResult.No };
+            var cancel = new PixelButton { Text = L.T("Отмена"), Bounds = new Rectangle(100, 172, 150, 42), DialogResult = DialogResult.Cancel };
             Controls.Add(no); Controls.Add(cancel); CancelButton = cancel;
         }
         else CancelButton = ok;

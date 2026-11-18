@@ -25,11 +25,11 @@ public sealed class ModLoaders(HttpClient http, AppPaths paths, Minecraft minecr
     {
         "fabric" => "https://meta.fabricmc.net/v2/versions/loader/",
         "quilt" => "https://meta.quiltmc.org/v3/versions/loader/",
-        _ => throw new InvalidOperationException("Неизвестный загрузчик")
+        _ => throw new InvalidOperationException(L.T("Неизвестный загрузчик"))
     };
     internal static void ValidateVersion(string value)
     {
-        if (!Regex.IsMatch(value, @"\A[A-Za-z0-9][A-Za-z0-9_.+\-]{0,100}\z")) throw new InvalidDataException("Недопустимая версия загрузчика или Minecraft");
+        if (!Regex.IsMatch(value, @"\A[A-Za-z0-9][A-Za-z0-9_.+\-]{0,100}\z")) throw new InvalidDataException(L.T("Недопустимая версия загрузчика или Minecraft"));
     }
     public async Task<IReadOnlyList<LoaderVersion>> VersionsAsync(string loader, string gameVersion, CancellationToken ct)
     {
@@ -69,16 +69,16 @@ public sealed class ModLoaders(HttpClient http, AppPaths paths, Minecraft minecr
             SaveProfile(new(profileId, gameVersion, loader, loaderVersion));
             return ready;
         }
-        progress.Report($"Получение профиля {loader} {loaderVersion}…");
+        progress.Report(L.F("Получение профиля {0} {1}…", loader, loaderVersion));
         var metadata = await Network.JsonAsync(http, HttpMethod.Get,
             api + Uri.EscapeDataString(gameVersion) + "/" + Uri.EscapeDataString(loaderVersion) + "/profile/json", null, null, ct).ConfigureAwait(false);
         if (metadata.Text("inheritsFrom") != gameVersion || metadata.Text("id") != profileId)
-            throw new InvalidDataException("Профиль загрузчика относится к другой версии Minecraft");
+            throw new InvalidDataException(L.T("Профиль загрузчика относится к другой версии Minecraft"));
         var mainClass = metadata.Text("mainClass");
         var prefix = loader == "fabric" ? "net.fabricmc.loader." : "org.quiltmc.loader.";
         if (!mainClass.StartsWith(prefix, StringComparison.Ordinal) || !mainClass.EndsWith(".KnotClient", StringComparison.Ordinal))
-            throw new InvalidDataException("Неизвестная точка запуска загрузчика");
-        progress.Report($"Подготовка Minecraft {gameVersion}…");
+            throw new InvalidDataException(L.T("Неизвестная точка запуска загрузчика"));
+        progress.Report(L.F("Подготовка Minecraft {0}…", gameVersion));
         var basis = await minecraft.PrepareAsync(gameVersion, progress, ct).ConfigureAwait(false);
         var plan = new InstallPlan
         {
@@ -100,7 +100,7 @@ public sealed class ModLoaders(HttpClient http, AppPaths paths, Minecraft minecr
             plan.Files.Add(file); plan.ClassPath.Add(file.RelativePath); replacements.Add(ClassPathKey(file.RelativePath));
         }
         plan.ClassPath.AddRange(basis.ClassPath.Where(path => !replacements.Contains(ClassPathKey(path))));
-        progress.Report("Установка библиотек загрузчика…");
+        progress.Report(L.T("Установка библиотек загрузчика…"));
         await new Downloads(http, paths).EnsureAllAsync(plan.Files, progress, ct).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
         var versionFile = AppPaths.SafeChild(paths.Root, $"game/versions/{profileId}/{profileId}.json");
@@ -120,7 +120,7 @@ public sealed class ModLoaders(HttpClient http, AppPaths paths, Minecraft minecr
     {
         var parts = name.Split(':');
         if (parts.Length is < 3 or > 4 || parts.Any(p => !Regex.IsMatch(p, @"\A[A-Za-z0-9_][A-Za-z0-9_.+\-]*\z")))
-            throw new InvalidDataException("Некорректные координаты библиотеки загрузчика");
+            throw new InvalidDataException(L.T("Некорректные координаты библиотеки загрузчика"));
         var classifier = parts.Length == 4 ? "-" + parts[3] : "";
         return parts[0].Replace('.', '/') + "/" + parts[1] + "/" + parts[2] + "/" + parts[1] + "-" + parts[2] + classifier + ".jar";
     }
@@ -135,11 +135,11 @@ public sealed class ModLoaders(HttpClient http, AppPaths paths, Minecraft minecr
         var path = MavenPath(library.Text("name"));
         var repository = new Uri(library.Text("url"));
         if (repository.Scheme != "https" || repository.Host is not ("maven.fabricmc.net" or "maven.quiltmc.org" or "repo.maven.apache.org") || !string.IsNullOrEmpty(repository.UserInfo))
-            throw new InvalidDataException("Неизвестный Maven-репозиторий загрузчика");
+            throw new InvalidDataException(L.T("Неизвестный Maven-репозиторий загрузчика"));
         var url = new Uri(repository, path).AbsoluteUri;
         var sha1 = library.TryGetProperty("sha1", out var hash) ? hash.GetString()! :
             (await http.GetStringAsync(url + ".sha1", ct).ConfigureAwait(false)).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0];
-        if (sha1.Length != 40 || sha1.Any(c => !Uri.IsHexDigit(c))) throw new InvalidDataException("Нет контрольной суммы библиотеки загрузчика");
+        if (sha1.Length != 40 || sha1.Any(c => !Uri.IsHexDigit(c))) throw new InvalidDataException(L.T("Нет контрольной суммы библиотеки загрузчика"));
         long size;
         if (library.TryGetProperty("size", out var length)) size = length.GetInt64();
         else
@@ -147,7 +147,7 @@ public sealed class ModLoaders(HttpClient http, AppPaths paths, Minecraft minecr
             using var request = new HttpRequestMessage(HttpMethod.Head, url);
             using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
-            size = response.Content.Headers.ContentLength ?? throw new InvalidDataException("Репозиторий не сообщил размер библиотеки");
+            size = response.Content.Headers.ContentLength ?? throw new InvalidDataException(L.T("Репозиторий не сообщил размер библиотеки"));
         }
         return new DownloadFile(url, "game/libraries/" + path, sha1, size);
     }

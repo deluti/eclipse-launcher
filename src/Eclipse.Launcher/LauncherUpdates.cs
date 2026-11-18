@@ -34,13 +34,13 @@ internal sealed class LauncherUpdates(HttpClient http)
         if (installer.ValueKind == JsonValueKind.Undefined) return null;
         var url = ValidatedAssetUrl(installer.Text("browser_download_url"), tag, InstallerName);
         var size = installer.GetProperty("size").GetInt64();
-        if (size <= 0 || size > 512L * 1024 * 1024) throw new InvalidDataException("Недопустимый размер обновления.");
+        if (size <= 0 || size > 512L * 1024 * 1024) throw new InvalidDataException(L.T("Недопустимый размер обновления."));
         var hash = installer.TryGetProperty("digest", out var digest) && digest.ValueKind == JsonValueKind.String ? digest.GetString() : null;
         if (hash?.StartsWith("sha256:", StringComparison.Ordinal) == true) hash = hash[7..]; else hash = null;
         if (hash == null)
         {
             var checksums = assets.FirstOrDefault(a => a.Text("name") == "SHA256SUMS.txt");
-            if (checksums.ValueKind == JsonValueKind.Undefined) throw new InvalidDataException("В релизе отсутствует контрольная сумма обновления.");
+            if (checksums.ValueKind == JsonValueKind.Undefined) throw new InvalidDataException(L.T("В релизе отсутствует контрольная сумма обновления."));
             var checksumUrl = ValidatedAssetUrl(checksums.Text("browser_download_url"), tag, "SHA256SUMS.txt");
             using var checksumResponse = await http.GetAsync(checksumUrl, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
             checksumResponse.EnsureSuccessStatusCode();
@@ -51,13 +51,13 @@ internal sealed class LauncherUpdates(HttpClient http)
                 if (pair.Length == 2 && pair[1] == InstallerName) { hash = pair[0]; break; }
             }
         }
-        if (hash?.Length != 64 || !hash.All(Uri.IsHexDigit)) throw new InvalidDataException("Недопустимая SHA-256 обновления.");
+        if (hash?.Length != 64 || !hash.All(Uri.IsHexDigit)) throw new InvalidDataException(L.T("Недопустимая SHA-256 обновления."));
         return new LauncherRelease(Normalize(version), tag, url, size, hash.ToLowerInvariant());
     }
     private static Uri ValidatedAssetUrl(string url, string tag, string name)
     {
         var expected = "https://github.com/" + Repository + "/releases/download/" + Uri.EscapeDataString(tag) + "/" + name;
-        if (url != expected) throw new InvalidDataException("Обновление должно находиться в официальном репозитории Eclipse.");
+        if (url != expected) throw new InvalidDataException(L.T("Обновление должно находиться в официальном репозитории Eclipse."));
         return new Uri(url);
     }
     internal async Task<string> DownloadAsync(LauncherRelease release, string directory, IProgress<int> progress, CancellationToken ct)
@@ -70,7 +70,7 @@ internal sealed class LauncherUpdates(HttpClient http)
         {
             using var response = await http.GetAsync(release.Installer, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
-            if (response.Content.Headers.ContentLength is { } length && length != release.Size) throw new InvalidDataException("Размер обновления не совпал.");
+            if (response.Content.Headers.ContentLength is { } length && length != release.Size) throw new InvalidDataException(L.T("Размер обновления не совпал."));
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             await using (var source = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
             await using (var destination = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 65536, true))
@@ -79,14 +79,14 @@ internal sealed class LauncherUpdates(HttpClient http)
                 while (await source.ReadAsync(buffer, ct).ConfigureAwait(false) is var count && count != 0)
                 {
                     received += count;
-                    if (received > release.Size) throw new InvalidDataException("Размер обновления превышен.");
+                    if (received > release.Size) throw new InvalidDataException(L.T("Размер обновления превышен."));
                     hash.AppendData(buffer, 0, count);
                     await destination.WriteAsync(buffer.AsMemory(0, count), ct).ConfigureAwait(false);
                     var next = (int)(received * 100 / release.Size);
                     if (next != percentage) { percentage = next; progress.Report(next); }
                 }
                 if (received != release.Size || !Convert.ToHexString(hash.GetHashAndReset()).Equals(release.Sha256, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidDataException("Контрольная сумма обновления не совпала. Установка отменена.");
+                    throw new InvalidDataException(L.T("Контрольная сумма обновления не совпала. Установка отменена."));
             }
             File.Move(temporary, target, true);
             return target;
@@ -106,7 +106,7 @@ internal sealed class LauncherUpdates(HttpClient http)
         using var target = new MemoryStream(); var buffer = new byte[16384];
         while (await source.ReadAsync(buffer, ct).ConfigureAwait(false) is var count && count != 0)
         {
-            if (target.Length + count > maximum) throw new InvalidDataException("Ответ сервера обновлений слишком большой.");
+            if (target.Length + count > maximum) throw new InvalidDataException(L.T("Ответ сервера обновлений слишком большой."));
             target.Write(buffer, 0, count);
         }
         return target.ToArray();

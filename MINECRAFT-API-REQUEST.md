@@ -1,28 +1,29 @@
-# Доступ Eclipse к Minecraft Java Game Service API
+# Minecraft API access for Eclipse
 
-На реальном аккаунте подтверждено: Microsoft OAuth — HTTP 200, Xbox Live — HTTP 200, XSTS — HTTP 200. Minecraft Services возвращает HTTP 403 с `Invalid app registration` для Client ID приложения.
+Earlier real-account diagnostics confirmed successful Microsoft OAuth, Xbox Live and XSTS responses. Minecraft Services then returned HTTP 403 with `Invalid app registration` for the configured application Client ID.
 
-Исправление регистра `Properties` / `RpsTicket` устраняет прежний HTTP 400 Xbox. Разрешение Minecraft API выдаётся отдельно на стороне Microsoft/Mojang, оно не добавляется локальным изменением JSON или настройкой redirect URI.
+If this response still occurs, the application owner needs Minecraft Java Game Service API approval. Entra redirect settings and a player's game license do not replace application approval.
 
-Страница запроса: https://aka.ms/mce-reviewappid
+- Approval request: https://aka.ms/mce-reviewappid
+- Service documentation: https://aka.ms/AppRegInfo
 
-Справка, указанная самим Minecraft Services: https://aka.ms/AppRegInfo
+## Application details
 
-## Данные для запроса
+- **Name:** Eclipse.
+- **Application (client) ID:** `44451aab-9b60-4e9d-8d73-c08762cdb1be`.
+- **Platform:** native Windows desktop launcher, .NET 10 / WinForms. The release launcher is x86 and starts a separate x64 Java process.
+- **Client type:** public client; no embedded client secret.
+- **Account type:** personal Microsoft accounts.
+- **Redirect URI:** `http://localhost` under **Mobile and desktop applications**. The launcher selects an ephemeral port.
+- **Authentication:** authorization code + PKCE S256 in the system browser, with a random state checked locally.
+- **Scopes:** `XboxLive.signin offline_access`.
+- **Microsoft mode:** verifies Minecraft Java ownership and the player profile before each launch; downloads official game files; displays and updates the player's own skins and owned capes.
+- **Local mode:** a separate nickname-based profile, explicitly selected in Settings, with no Microsoft credentials or ownership claim.
+- **Credential handling:** passwords are entered only on Microsoft's website. Refresh and Minecraft tokens are encrypted with Windows DPAPI for the current user. No token logging or server-side credential collection.
+- **Observed error:** HTTP 403 / `Invalid app registration` at `https://api.minecraftservices.com/authentication/login_with_xbox`, after successful Xbox/XSTS authentication.
+- **Source:** https://github.com/deluti/eclipse-launcher.
+- **Contact name and email:** the application owner must provide their own contact information.
 
-- Application name: **Eclipse**.
-- Application (client) ID: **44451aab-9b60-4e9d-8d73-c08762cdb1be**.
-- Platform: **Windows x64, native desktop application (.NET 10 / WinForms)**.
-- Client type: **Public client, no embedded client secret**.
-- Account types: **Personal Microsoft accounts**.
-- OAuth redirect URI: **http://localhost**; ephemeral port selected at runtime.
-- Authentication: **Authorization Code + PKCE S256**, system browser, random state checked locally.
-- Scopes: **XboxLive.signin offline_access**.
-- Purpose: **Licensed Minecraft Java Edition launcher. Authenticate the player's own Microsoft account, verify ownership and profile, download official game files, and launch Java. Display and update the player's own skin and owned cape through the authenticated profile API.**
-- Credential handling: **Passwords are entered only on Microsoft's website. Refresh and Minecraft tokens are encrypted with Windows DPAPI for the current Windows user. No token logging or server-side credential collection.**
-- Licensing: **Microsoft-account mode requires an online Minecraft ownership and profile check for each launch. A separate local nickname mode exists and does not use Microsoft credentials or claim to verify ownership.**
-- API error: **HTTP 403 / Invalid app registration** at `https://api.minecraftservices.com/authentication/login_with_xbox` after successful Xbox/XSTS authentication.
-- Contact name / email: **укажите свои данные владельца регистрации**.
-- Project website / source link: **https://github.com/deluti/eclipse-launcher**.
+This file does not submit an approval request. The owner should verify the details before submitting. Once the same Client ID is approved, the launcher can retry using the encrypted saved sign-in; rebuilding is unnecessary.
 
-Заявка не отправлена: контактные данные и сведения владельца должны быть проверены владельцем приложения. После разрешения этого же Client ID пересборка не нужна; повторите запуск, используя сохранённый вход.
+For `invalid_request / redirect_uri is not valid`, open **Microsoft Entra → App registrations → the application → Authentication**, add **Mobile and desktop applications** with `http://localhost`, enable **Allow public client flows**, and save.

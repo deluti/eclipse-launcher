@@ -21,19 +21,19 @@ internal sealed class MainForm : Form
     private readonly Panel pages = new() { Dock = DockStyle.Fill, Padding = new Padding(20, 0, 20, 0) };
     private readonly Panel home = new() { Dock = DockStyle.Fill };
     private readonly SkinScene scene = new() { Dock = DockStyle.Fill };
-    private readonly PixelComboBox versions = new() { Width = 300, AccessibleName = "Версия Minecraft" };
-    private readonly PixelButton installVersion = new() { Text = "+", Width = 38, Height = 36, AccessibleName = "Установить версию" };
-    private readonly PixelButton login = new() { Text = "Войти", Width = 165, Quiet = true, AccessibleName = "Войти через Microsoft" };
-    private readonly PixelButton logout = new() { Text = "Выйти", Width = 100, Quiet = true, Visible = false };
-    private readonly PixelButton play = new() { Text = "ИГРАТЬ", Width = 360, Height = 64, Primary = true, Font = PixelTheme.Font(24), AccessibleName = "Играть" };
+    private readonly PixelComboBox versions = new() { Width = 300, AccessibleName = L.T("Версия Minecraft") };
+    private readonly PixelButton installVersion = new() { Text = "+", Width = 38, Height = 36, AccessibleName = L.T("Установить версию") };
+    private readonly PixelButton login = new() { Text = L.T("Войти"), Width = 165, Quiet = true, AccessibleName = L.T("Войти через Microsoft") };
+    private readonly PixelButton logout = new() { Text = L.T("Выйти"), Width = 100, Quiet = true, Visible = false };
+    private readonly PixelButton play = new() { Text = L.T("ИГРАТЬ"), Width = 360, Height = 64, Primary = true, Font = PixelTheme.Font(24), AccessibleName = L.T("Играть") };
     private readonly PlaytimeBadge playtimeBadge = new();
     private readonly System.Windows.Forms.Timer playtimeTimer = new() { Interval = 1000 };
-    private readonly PixelButton update = new() { Text = "Обновить", Width = 142, Primary = true, Visible = false, Font = PixelTheme.Font(14), AccessibleName = "Обновить лаунчер" };
+    private readonly PixelButton update = new() { Text = L.T("Обновить"), Width = 142, Primary = true, Visible = false, Font = PixelTheme.Font(14), AccessibleName = L.T("Обновить лаунчер") };
     private readonly LauncherUpdates? updatesOverride;
     private LauncherUpdates? updates;
     private LauncherRelease? availableUpdate;
     private bool closingForUpdate;
-    private readonly PixelButton cancel = new() { Text = "Отмена", Width = 110, Dock = DockStyle.Right, Quiet = true, Visible = false };
+    private readonly PixelButton cancel = new() { Text = L.T("Отмена"), Width = 110, Dock = DockStyle.Right, Quiet = true, Visible = false };
     private readonly Label status = new() { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true, Cursor = Cursors.Hand };
     private readonly ToolTip tip = new() { AutoPopDelay = 12000 };
     private HttpClient? http;
@@ -50,7 +50,7 @@ internal sealed class MainForm : Form
     private readonly CancellationTokenSource lifetime = new();
     private IProgress<string>? currentProgress;
     private string? errorDetails;
-    private bool running;
+    private volatile bool running;
     private int appearanceGeneration;
     private bool bindingVersions;
     private string selectedVersion = "";
@@ -84,9 +84,9 @@ internal sealed class MainForm : Form
         footer.Controls.Add(status); footer.Controls.Add(cancel);
         var chrome = new Panel { Dock = DockStyle.Top, Height = 50, Padding = new Padding(16, 5, 6, 4), BackColor = PixelTheme.Header };
         var brand = new BrandMark { Dock = DockStyle.Left, Width = 185 };
-        var close = new PixelButton { Text = "×", Width = 46, Dock = DockStyle.Right, Quiet = true, AccessibleName = "Закрыть" };
-        var maximize = new PixelButton { Text = "□", Width = 46, Dock = DockStyle.Right, Quiet = true, AccessibleName = "Развернуть" };
-        var minimize = new PixelButton { Text = "_", Width = 46, Dock = DockStyle.Right, Quiet = true, AccessibleName = "Свернуть" };
+        var close = new PixelButton { Text = "×", Width = 46, Dock = DockStyle.Right, Quiet = true, AccessibleName = L.T("Закрыть") };
+        var maximize = new PixelButton { Text = "□", Width = 46, Dock = DockStyle.Right, Quiet = true, AccessibleName = L.T("Развернуть") };
+        var minimize = new PixelButton { Text = "_", Width = 46, Dock = DockStyle.Right, Quiet = true, AccessibleName = L.T("Свернуть") };
         login.Dock = logout.Dock = update.Dock = DockStyle.Right;
         foreach (var button in new[] { login, logout, update, minimize, maximize, close }) button.BackColor = PixelTheme.Header;
         cancel.BackColor = PixelTheme.Background;
@@ -132,9 +132,9 @@ internal sealed class MainForm : Form
         };
         logout.Click += (_, _) =>
         {
-            auth?.SignOut(); profile = null; login.Text = "Войти"; logout.Visible = false; scene.SetAppearance(null, false, null);
+            auth?.SignOut(); profile = null; login.Text = L.T("Войти"); logout.Visible = false; scene.SetAppearance(null, false, null);
             if (skins != null && appearance != null) _ = skins.SetProfileAsync(null, appearance);
-            SetStatus("Вы вышли из аккаунта");
+            SetStatus(L.T("Вы вышли из аккаунта"));
         };
         play.Click += async (_, _) => await RunAsync(PlayAsync);
         update.Click += async (_, _) => await RunAsync(UpdateLauncherAsync);
@@ -160,6 +160,7 @@ internal sealed class MainForm : Form
             operation?.Cancel(); lifetime.Cancel();
         };
         FormClosed += (_, _) => { playtimeTimer.Dispose(); http?.Dispose(); tip.Dispose(); backdrop.Dispose(); };
+        L.CaptureTree(this);
     }
     private void ToggleMaximize()
     {
@@ -241,7 +242,7 @@ internal sealed class MainForm : Form
                         {
                             var account = await AuthenticateAsync(false, ct);
                             var updated = await appearance!.ApplyAsync(account, skin, cape, ct);
-                            await LoadAppearanceAsync(updated); SetStatus("Внешний вид сохранён");
+                            await LoadAppearanceAsync(updated); SetStatus(L.T("Внешний вид сохранён"));
                         });
                     }
                     page = skins; break;
@@ -249,6 +250,16 @@ internal sealed class MainForm : Form
                     if (options == null)
                     {
                         options = new SettingsPage(); options.Bind(settings);
+                        options.LanguageChanged += language =>
+                        {
+                            try
+                            {
+                                settings.Language = language;
+                                JsonStore.Write(paths.FilePath("settings.json"), settings);
+                                ApplyLanguage(language);
+                            }
+                            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { ShowError(ex); }
+                        };
                         options.SaveRequested += () =>
                         {
                             try
@@ -258,7 +269,7 @@ internal sealed class MainForm : Form
                                 RefreshIdentity();
                                 if (previousMode && !settings.OfflineMode && appearance?.CachedProfile() is { } cached && cached.Name == auth?.SavedName)
                                     _ = LoadAppearanceAsync(cached);
-                                SetStatus("Настройки сохранены");
+                                SetStatus(L.T("Настройки сохранены"));
                             }
                             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException) { ShowError(ex); }
                         };
@@ -267,7 +278,7 @@ internal sealed class MainForm : Form
                     page = options; break;
                 default: page = home; break;
             }
-            if (!pages.Controls.Contains(page)) { page.Dock = DockStyle.Fill; pages.Controls.Add(page); }
+            if (!pages.Controls.Contains(page)) { L.CaptureTree(page); page.Dock = DockStyle.Fill; pages.Controls.Add(page); }
             foreach (Control item in pages.Controls) item.Visible = item == page;
             page.BringToFront();
             if (tab == LauncherTab.Screenshots) await gallery!.ReloadAsync();
@@ -288,6 +299,21 @@ internal sealed class MainForm : Form
             }, lifetime.Token);
             UiSounds.Enabled = settings.InterfaceSounds;
             http = Network.Create(); auth = new Authentication(http, paths, config.MicrosoftClientId); minecraft = new Minecraft(http, paths); appearance = new AppearanceService(http, paths);
+            minecraft.GameStarted += () =>
+            {
+                running = true;
+                try
+                {
+                    if (!IsDisposed && IsHandleCreated) BeginInvoke((Action)(() =>
+                    {
+                        if (IsDisposed) return;
+                        cancel.Visible = false;
+                        if (settings.MinimizeOnLaunch) WindowState = FormWindowState.Minimized;
+                    }));
+                }
+                catch (InvalidOperationException) { /* Closing the UI must not interrupt process tracking. */ }
+            };
+            ApplyLanguage(settings.Language);
             updates = updatesOverride ?? new LauncherUpdates(http);
             RefreshPlaytime(); playtimeTimer.Start();
             _ = CheckUpdatesAsync();
@@ -295,7 +321,7 @@ internal sealed class MainForm : Form
             RefreshIdentity(name);
             options?.Bind(settings);
             await LoadVersionsAsync(false, lifetime.Token);
-            SetStatus(settings.OfflineMode || !string.IsNullOrEmpty(name) ? "Готов к запуску" : "Войдите в Microsoft");
+            SetStatus(settings.OfflineMode || !string.IsNullOrEmpty(name) ? L.T("Готов к запуску") : L.T("Войдите в Microsoft"));
             var cached = settings.OfflineMode ? null : await Task.Run(() => appearance.CachedProfile(), lifetime.Token);
             // Cosmetic downloads must never hold up the Play button.
             Ready = true;
@@ -323,16 +349,16 @@ internal sealed class MainForm : Form
             if (skins != null) await skins.SetProfileAsync(profile, appearance);
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) when (ex is IOException or HttpRequestException or ArgumentException) { SetStatus("Скин временно недоступен"); }
+        catch (Exception ex) when (ex is IOException or HttpRequestException or ArgumentException) { SetStatus(L.T("Скин временно недоступен")); }
     }
     private async Task SignInAsync(CancellationToken ct)
     {
         var account = await AuthenticateAsync(true, ct);
-        _ = LoadAppearanceAsync(appearance!.Remember(account)); SetStatus("Лицензия подтверждена");
+        _ = LoadAppearanceAsync(appearance!.Remember(account)); SetStatus(L.T("Лицензия подтверждена"));
     }
     private async Task<LicensedAccount> AuthenticateAsync(bool interactive, CancellationToken ct)
     {
-        if (settings.OfflineMode) throw new InvalidOperationException("Для скинов и плащей выберите вход Microsoft в настройках");
+        if (settings.OfflineMode) throw new InvalidOperationException(L.T("Для скинов и плащей выберите вход Microsoft в настройках"));
         var progress = currentProgress!;
         var account = await Task.Run(() => auth!.AuthenticateAsync(interactive, progress, ct), ct);
         if (!settings.OfflineMode) { login.Text = account.Name; logout.Visible = true; }
@@ -341,7 +367,7 @@ internal sealed class MainForm : Form
     private async Task PlayAsync(CancellationToken ct)
     {
         var version = VersionId(versions.SelectedItem);
-        if (string.IsNullOrEmpty(version)) throw new InvalidOperationException("Выберите версию Minecraft");
+        if (string.IsNullOrEmpty(version)) throw new InvalidOperationException(L.T("Выберите версию Minecraft"));
         settings.Version = version; JsonStore.Write(paths.FilePath("settings.json"), settings);
         var progress = currentProgress!;
         var offline = settings.OfflineMode ? OfflineAccount.Create(settings.Nickname) : null;
@@ -352,13 +378,26 @@ internal sealed class MainForm : Form
             ? minecraft!.LaunchOfflineAsync(plan, offline, settings.MemoryMb, progress, ct, settings)
             : minecraft!.LaunchAsync(plan, account!, settings.MemoryMb, progress, ct, settings), ct);
         RefreshPlaytime();
-        if (exitCode == 0) SetStatus("Minecraft закрыт");
-        else { SetStatus($"Minecraft завершился с кодом {exitCode}"); errorDetails = "Журнал: " + paths.FilePath("logs/game-latest.log"); }
+        if (exitCode == 0) SetStatus(L.T("Minecraft закрыт"));
+        else { SetStatus(L.F("Minecraft завершился с кодом {0}", exitCode)); errorDetails = L.T("Журнал: ") + paths.FilePath("logs/game-latest.log"); }
     }
     private void RefreshPlaytime()
     {
         if (playtimeBadge.SetHours(minecraft?.Playtime.TotalHours ?? 0)) play.Parent?.Invalidate(playtimeBadge.Bounds);
         if (play.Parent != null) play.Parent.AccessibleDescription = playtimeBadge.AccessibleName;
+    }
+    private void ApplyLanguage(string language)
+    {
+        L.SetLanguage(language);
+        L.RefreshTree(this);
+        Navigation.RefreshLanguage();
+        options?.RefreshLanguage();
+        RefreshIdentity();
+        RefreshPlaytime();
+        play.Text = operation != null ? L.T("ПОДГОТОВКА…") : L.T("ИГРАТЬ");
+        if (operation == null) update.Text = L.T("Обновить");
+        if (Ready && operation == null) SetStatus(L.T("Готов к запуску"));
+        if (skins?.Visible == true && appearance != null) _ = skins.SetProfileAsync(profile, appearance);
     }
     private async Task CheckUpdatesAsync()
     {
@@ -378,25 +417,25 @@ internal sealed class MainForm : Form
         if (updates == null || availableUpdate == null) return;
         try
         {
-            SetStatus("Загрузка обновления Eclipse…");
+            SetStatus(L.T("Загрузка обновления Eclipse…"));
             var progress = new Progress<int>(percent => { if (!IsDisposed) update.Text = percent + "%"; });
             var directory = paths.FilePath("updates/" + availableUpdate.Version.ToString(3) + "-" + Guid.NewGuid().ToString("N"));
             var installer = await updates.DownloadAsync(availableUpdate, directory, progress, ct);
             ct.ThrowIfCancellationRequested();
             if (files != null && !files.ConfirmLeave()) return;
             var info = LauncherUpdates.InstallerStartInfo(installer, AppContext.BaseDirectory, paths.Root, Environment.ProcessId);
-            using var process = Process.Start(info) ?? throw new InvalidOperationException("Не удалось запустить обновление.");
+            using var process = Process.Start(info) ?? throw new InvalidOperationException(L.T("Не удалось запустить обновление."));
             closingForUpdate = true;
             Close();
         }
-        finally { closingForUpdate = false; if (!IsDisposed) update.Text = "Обновить"; }
+        finally { closingForUpdate = false; if (!IsDisposed) update.Text = L.T("Обновить"); }
     }
     private void RefreshIdentity(string? savedName = null)
     {
         if (settings.OfflineMode)
         {
             login.Text = OfflineAccount.Create(settings.Nickname).Name;
-            login.AccessibleName = "Настройки никнейма";
+            login.AccessibleName = L.T("Настройки никнейма");
             logout.Visible = false;
             appearanceGeneration++;
             if (profile != null) { profile = null; scene.SetAppearance(null, false, null); }
@@ -405,15 +444,15 @@ internal sealed class MainForm : Form
         else
         {
             var name = savedName ?? auth?.SavedName;
-            login.Text = string.IsNullOrEmpty(name) ? "Войти" : name;
-            login.AccessibleName = "Войти через Microsoft";
+            login.Text = string.IsNullOrEmpty(name) ? L.T("Войти") : name;
+            login.AccessibleName = L.T("Войти через Microsoft");
             logout.Visible = !string.IsNullOrEmpty(name);
         }
     }
     private async Task LoadVersionsAsync(bool refreshList, CancellationToken ct)
     {
         if (minecraft == null) return;
-        SetStatus("Загрузка версий…");
+        SetStatus(L.T("Загрузка версий…"));
         var previous = VersionId(versions.SelectedItem);
         if (string.IsNullOrEmpty(previous)) previous = settings.Version;
         var manifest = await Task.Run(() => minecraft.VersionsAsync(refreshList, ct), ct);
@@ -424,7 +463,7 @@ internal sealed class MainForm : Form
         versions.Items.AddRange(list);
         versions.SelectedItem = versions.Items.FirstOrDefault(item => VersionId(item) == previous) ?? manifest.GetProperty("latest").Text("release");
         if (versions.SelectedIndex < 0 && list.Length > 0) versions.SelectedIndex = 0;
-        versions.EndUpdate(); bindingVersions = false; ChangeVersion(); SetStatus("Версии обновлены");
+        versions.EndUpdate(); bindingVersions = false; ChangeVersion(); SetStatus(L.T("Версии обновлены"));
     }
     private static string VersionId(object? item) => item switch { ModdedProfile profile => profile.Id, string id => id, _ => "" };
     private void ChangeVersion()
@@ -461,7 +500,7 @@ internal sealed class MainForm : Form
             await LoadVersionsAsync(false, lifetime.Token);
             versions.SelectedItem = versions.Items.OfType<ModdedProfile>().First(p => p.Id == installed.Id);
             JsonStore.Write(paths.FilePath("settings.json"), settings);
-            SetStatus("Установлено: " + installed);
+            SetStatus(L.T("Установлено: ") + installed);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { if (!IsDisposed) ShowError(ex); }
@@ -472,7 +511,7 @@ internal sealed class MainForm : Form
         var pending = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
         operation = pending; SetBusy(true);
         try { await action(pending.Token); }
-        catch (OperationCanceledException) { if (!IsDisposed) SetStatus("Операция отменена или истекло время ожидания"); }
+        catch (OperationCanceledException) { if (!IsDisposed) SetStatus(L.T("Операция отменена или истекло время ожидания")); }
         catch (Exception ex) { if (!IsDisposed) ShowError(ex); }
         finally
         {
@@ -485,14 +524,12 @@ internal sealed class MainForm : Form
         installVersion.Enabled = !busy;
         update.Enabled = !busy && availableUpdate != null;
         login.Enabled = logout.Enabled = play.Enabled = versions.Enabled = !busy;
-        play.Text = busy ? "ПОДГОТОВКА…" : "ИГРАТЬ";
+        play.Text = busy ? L.T("ПОДГОТОВКА…") : L.T("ИГРАТЬ");
         cancel.Visible = busy && operation != null && !running;
         if (busy) currentProgress = new Progress<string>(message =>
         {
             if (IsDisposed || lifetime.IsCancellationRequested) return;
             SetStatus(message);
-            if (message.StartsWith("Minecraft запущен.", StringComparison.Ordinal))
-            { running = true; cancel.Visible = false; if (settings.MinimizeOnLaunch) WindowState = FormWindowState.Minimized; }
         });
     }
     private void SetStatus(string message)
@@ -503,13 +540,13 @@ internal sealed class MainForm : Form
     private void ShowError(Exception ex)
     {
         UiSounds.Play(UiCue.Error);
-        var message = ex is HttpRequestException ? "Нет соединения с сервером" : ex.Message;
-        if (ex is OAuthConfigurationException) message = "Нужно настроить вход Microsoft — нажмите для инструкции";
-        if (ex is MinecraftAppApprovalException) message = "Minecraft не одобрил приложение — нажмите для инструкции";
-        if (message.Contains("MicrosoftClientId", StringComparison.Ordinal)) message = "Вход Microsoft ещё не настроен";
+        var message = ex is HttpRequestException ? L.T("Нет соединения с сервером") : ex.Message;
+        if (ex is OAuthConfigurationException) message = L.T("Нужно настроить вход Microsoft — нажмите для инструкции");
+        if (ex is MinecraftAppApprovalException) message = L.T("Minecraft не одобрил приложение — нажмите для инструкции");
+        if (message.Contains("MicrosoftClientId", StringComparison.Ordinal)) message = L.T("Вход Microsoft ещё не настроен");
         SetStatus(message); status.ForeColor = Color.FromArgb(218, 160, 130); errorDetails = ex.Message; tip.SetToolTip(status, errorDetails);
-        if (ex is OAuthConfigurationException) PixelDialog.Message(this, "Настройка Microsoft", ex.Message);
-        if (ex is MinecraftAppApprovalException) PixelDialog.Message(this, "Разрешение Minecraft API", ex.Message);
+        if (ex is OAuthConfigurationException) PixelDialog.Message(this, L.T("Настройка Microsoft"), ex.Message);
+        if (ex is MinecraftAppApprovalException) PixelDialog.Message(this, L.T("Разрешение Minecraft API"), ex.Message);
     }
     private static bool SupportedRelease(string version) => !version.StartsWith("1.", StringComparison.Ordinal) || (Version.TryParse(version, out var parsed) && parsed.Minor >= 18);
 }

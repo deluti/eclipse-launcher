@@ -7,7 +7,7 @@ internal sealed class GalleryPage : UserControl
 {
     private readonly string directory;
     private readonly FlowLayoutPanel grid = new() { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(16, 8, 16, 16), WrapContents = true };
-    private readonly Label empty = PixelTheme.TextLabel("Пока нет скриншотов", 18);
+    private readonly Label empty = PixelTheme.TextLabel(L.T("Пока нет скриншотов"), 18);
     private readonly CancellationTokenSource lifetime = new();
     private readonly Action<string> report;
     private bool loading;
@@ -17,9 +17,9 @@ internal sealed class GalleryPage : UserControl
         directory = Path.Combine(paths.Game, "screenshots");
         BackColor = PixelTheme.Background;
         var bar = new Panel { Dock = DockStyle.Top, Height = 58 };
-        var title = PixelTheme.TextLabel("ПОСЛЕДНИЕ СКРИНШОТЫ", 16); title.Location = new Point(24, 19);
-        var refresh = new PixelButton { Text = "Обновить", Width = 140, Dock = DockStyle.Right };
-        var folder = new PixelButton { Text = "Папка", Width = 110, Dock = DockStyle.Right };
+        var title = PixelTheme.TextLabel(L.T("ПОСЛЕДНИЕ СКРИНШОТЫ"), 16); title.Location = new Point(24, 19);
+        var refresh = new PixelButton { Text = L.T("Обновить"), Width = 140, Dock = DockStyle.Right };
+        var folder = new PixelButton { Text = L.T("Папка"), Width = 110, Dock = DockStyle.Right };
         refresh.Click += async (_, _) => await ReloadAsync();
         folder.Click += (_, _) => { Directory.CreateDirectory(directory); Process.Start(new ProcessStartInfo(directory) { UseShellExecute = true }); };
         bar.Controls.Add(title); bar.Controls.Add(folder); bar.Controls.Add(refresh);
@@ -134,7 +134,7 @@ internal sealed class ScreenshotViewer : Form
     public ScreenshotViewer(string[] files, int index)
     {
         this.files = files; this.index = index;
-        Text = "Скриншоты"; Font = PixelTheme.Font(); BackColor = PixelTheme.Background; ForeColor = PixelTheme.Text;
+        Text = L.T("Скриншоты"); Font = PixelTheme.Font(); BackColor = PixelTheme.Background; ForeColor = PixelTheme.Text;
         Size = new Size(1100, 760); MinimumSize = new Size(640, 440); StartPosition = FormStartPosition.CenterParent; KeyPreview = true;
         var bar = new Panel { Dock = DockStyle.Bottom, Height = 62, Padding = new Padding(10) };
         var previous = new PixelButton { Text = "<", Dock = DockStyle.Left, Width = 65 };
@@ -154,6 +154,6 @@ internal sealed class ScreenshotViewer : Form
     {
         index = (index + delta + files.Length) % files.Length;
         try { viewport.LoadImage(files[index]); caption.Text = $"{index + 1} / {files.Length}   {Path.GetFileName(files[index])}"; }
-        catch (Exception ex) when (ex is IOException or ArgumentException) { caption.Text = "Не удалось открыть скриншот"; }
+        catch (Exception ex) when (ex is IOException or ArgumentException) { caption.Text = L.T("Не удалось открыть скриншот"); }
     }
 }

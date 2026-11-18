@@ -1,185 +1,106 @@
-# Eclipse
+# Eclipse Launcher
 
-Минимальный быстрый лаунчер Minecraft **Java Edition для Windows x64**. Нативное окно WinForms, .NET 10, без Electron, WebView, сторонних NuGet-пакетов, новостей и рекламы. Поддерживаются стабильные версии с 1.18, обычный Minecraft и установка загрузчиков Fabric / Quilt. Отдельные моды добавляются в папку выбранного профиля.
+[Download for Windows](https://github.com/deluti/eclipse-launcher/releases/latest/download/eclipse-launcher-windows-x86.exe) · [Releases](https://github.com/deluti/eclipse-launcher/releases) · [Русский](README.ru.md)
 
-**[Скачать установщик для Windows](https://github.com/deluti/eclipse-launcher/releases/latest/download/eclipse-launcher-windows-x86.exe)** · [Все релизы](https://github.com/deluti/eclipse-launcher/releases)
+A fast, native Minecraft **Java Edition** launcher for Windows. Built with C# / .NET 10 and WinForms, without Electron, WebView, ads or a news feed.
 
-`eclipse-launcher-windows-x86.exe` содержит 32-битный лаунчер и .NET Runtime: отдельно устанавливать .NET не нужно. Требуется Windows 10 2004+ / Windows 11 **x64**, поскольку игра и автоматически загружаемая Java — 64-битные. Установщик работает без прав администратора, создаёт пункт меню «Пуск»; ярлык рабочего стола необязателен. Игровые данные в `data` внутри папки лаунчера сохраняются при обновлении и удалении программы.
+![Eclipse Launcher](PREVIEW/launcher-en.png)
 
-## Запуск
+## Install and play
 
-Установите релиз по ссылке выше и откройте **Eclipse Launcher** из меню «Пуск». Для локальной сборки разработчика: `artifacts/Eclipse/Eclipse.exe` вместе с соседними файлами; только для неё нужен [Windows Desktop Runtime 10 x64](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
+1. Download **eclipse-launcher-windows-x86.exe** from the latest release.
+2. Install Eclipse and open it from the Start menu.
+3. Open **Settings**, choose your sign-in method and nickname, and save.
+4. Select a Minecraft version and press **PLAY**, or press **Space** on the home tab.
 
-1. Откройте **«Настройки»**, укажите **никнейм** и выберите вход **«По никнейму»**. Нажмите **«Сохранить»**. Этот режим включён по умолчанию, начальный ник — `Player`.
-2. Вернитесь в Eclipse, выберите версию и нажмите **«Играть»**. Вход Microsoft и Client ID для этого режима не нужны.
-3. При первом запуске автоматически загружаются игра, библиотеки, ресурсы и подходящая официальная Java. При следующих запусках готовые файлы используются повторно.
-4. Для входа в аккаунт выберите **«Microsoft»** в настройках, сохраните и нажмите **«Войти»** справа сверху. Этот режим использует регистрацию приложения по инструкции ниже и проверяет лицензию аккаунта.
+The x86 launcher includes its own .NET runtime. Minecraft and the downloaded Java runtime require **Windows 10 2004+ or Windows 11 x64**. A separate .NET installation is unnecessary for release installers. Installation works for the current user without administrator rights; the desktop shortcut is optional.
 
-Режим по никнейму предназначен для одиночной игры и серверов без проверки сессии Microsoft. Для серверов с проверкой аккаунта и Realms нужен вход Microsoft. Изменение ника создаёт другую локальную игровую личность; UUID постоянен для одинакового ника. Допустимы 3–16 латинских букв, цифр и `_`. Справа сверху показывается выбранный ник; нажатие открывает настройки.
+English is the default, including when upgrading older settings. Choose **English** or **Русский** under **Settings → Language**. The language applies immediately and is remembered. Other settings still use **Save**.
 
-Сворачивание при запуске настраивается во вкладке «Настройки». Кнопка закрытия окна во время игры сворачивает лаунчер, чтобы сохранить запись лога и показать ошибку завершения. Журнал лаунчера: `artifacts/Eclipse/data/logs/game-latest.log`; собственные логи игры находятся в каталоге `logs` активного профиля.
+## Features
 
-## Часы и обновления
+- **Minecraft 1.18+**, with automatic downloads from official Minecraft servers and verified file hashes.
+- **Fabric and Quilt** installation using the **+** button next to the version selector. Each modded profile has its own worlds, mods, options and screenshots.
+- **3D skin and cape preview**, with Steve before sign-in, two standing poses, idle animation, a pixel platform and a character outline. Drag to rotate, scroll to zoom, double-click to reset the camera.
+- **Screenshots** gallery with recent images and a full-size viewer.
+- **Files** tree with text editing and quick access to the active profile's mods folder.
+- **Settings** for language, nickname, sign-in method, memory, window size, fullscreen, launcher minimization and interface sounds.
+- **Playtime counter** below PLAY. It tracks the running game, not launcher idle time or downloads, and saves every 30 seconds and when the game closes.
+- **One-click updates**: startup checks the latest stable GitHub release in the background. A green **Update** button appears to the left of your nickname when a newer version is available. The installer is verified by size and SHA-256 before execution.
+- Pixel UI with an embedded **Monocraft** font, English and Russian text, green particles and quiet action sounds. The animation loop targets **120 FPS**, including mouse rotation; actual performance depends on the computer and display.
 
-Под кнопкой «Играть» находится плашка с пиксельными часами и общим временем игры, например `12,3 ч`. Кнопка рисуется поверх плашки и закрывает её верхние 12 px. Учитывается время жизни запущенного Minecraft во всех версиях и профилях; подготовка файлов и нахождение в лаунчере не считаются. Значение хранится в `data/playtime.json`, сохраняется раз в 30 секунд и при завершении игры. История до установки этой версии не восстанавливается.
+Navigate tabs with **A / D**, then **Enter**, or click a tab. Text fields retain normal typing behavior. The active tab stays centered; cards share their top edge and overlap according to depth. PLAY sits above the playtime plaque.
 
-При каждом запуске Eclipse проверяет последний стабильный релиз `deluti/eclipse-launcher` в фоне. Проверка не задерживает первое окно и кнопку игры. Если версия новее, слева от никнейма появляется зелёная кнопка **«Обновить»**. Она скачивает установщик, проверяет размер и SHA-256, закрывает лаунчер и обновляет его в той же папке. После установки лаунчер открывается снова, в том числе с прежним `--data-dir`. Во время игры и других операций кнопка недоступна; ошибка сети при проверке не мешает играть.
+## Sign-in methods
 
-Для первого перехода с 0.1.0 скачайте новый установщик и укажите папку старого Eclipse. Установщик распознаёт прежний EXE / DLL или папку `data` и предлагает обновить существующую установку. Миры, моды, профили, скриншоты, настройки, счётчик часов и конфигурация Microsoft сохраняются. Вложенная папка с ещё одной копией лаунчера не создаётся.
+**Local nickname** uses a separate local profile with a stable `OfflinePlayer:<nickname>` UUID. It does not access Microsoft credentials or verify game ownership. It is enabled by default; the initial nickname is `Player`.
 
-## Интерфейс
+**Microsoft** signs in through the system browser using OAuth authorization code + PKCE, then Xbox Live, XSTS and Minecraft Services. This mode verifies Minecraft Java ownership and the player profile before launching. Passwords are entered only on Microsoft's website. Authentication failure never switches to local mode automatically.
 
-На основной вкладке Eclipse **пробел** запускает игру с версией, выбранной под кнопкой «Играть». В текстовых полях пробел вводится как обычно, а в выборе версии открывает список. Пока кнопка игры отключена, повторное нажатие не создаёт ещё один запуск.
+Microsoft sign-in and appearance changes require a registered application Client ID with Minecraft API approval. The configured application has previously received `403 / Invalid app registration`; see [application setup](MINECRAFT-API-REQUEST.md). A valid player license alone does not grant an application access to the API. Players do not need to register applications or enter a Client ID themselves.
 
-Пять карточек в циклическом порядке: **Скриншоты → Файлы → Eclipse → Скины → Настройки**. При открытии выбран Eclipse. **A / D** меняют выбранную карточку, **Enter** открывает её; клик открывает сразу. Выбранная карточка перемещается в центр. Все верхние грани выровнены, ширина карточек одинакова; дальние сохраняют базовую высоту 100 px, ближние растут до 108 px, выбранная — до 116 px. Боковые карточки частично скрываются под ближайшими к центру согласно Z-порядку. Тёмный фон хедера растворяется в основном фоне сеткой пикселей. Нижняя правая подсказка управления убрана. В редакторе и поле памяти A/D вводят текст; стрелки дерева файлов остаются обычными стрелками.
+Skins and capes are loaded from the authenticated profile. Only owned capes can be equipped. The API does not provide the official launcher's complete skin history; Eclipse also remembers skins previously seen for that player.
 
-- **Скриншоты:** последние 120 PNG из папки скриншотов выбранного профиля, новые сверху. Клик открывает просмотр; ← / → листают, колесо приближает, перетаскивание сдвигает изображение, двойной клик сбрасывает масштаб, Escape закрывает просмотр.
-- **Файлы:** дерево игровой папки выбранного профиля с ленивой загрузкой папок и встроенным текстовым редактором. Кнопка «Моды» открывает его каталог `mods`. Сохранение кнопкой или Ctrl+S; кодировка и BOM сохраняются. Бинарные файлы и файлы больше 2 МБ не редактируются. Изменённый другим процессом файл не перезаписывается; несохранённый текст защищён диалогом. Ссылки на внешние каталоги пропускаются.
-- **Eclipse:** текстурированный 3D-персонаж с тёмным контуром по силуэту на пиксельной платформе, затухающей по краям. Свечение у ног отключено. На фоне — едва заметный статичный пиксельный шум; снизу до кнопки игры поднимается тёмный пиксельный градиент. Перетаскивание вращает, колесо меняет масштаб, двойной клик сбрасывает камеру. Кнопка игры и версии находятся снизу. До входа отображается оригинальный Steve из официального клиента Minecraft — его текстура встроена и доступна без сети; после входа загружается скин игрока.
-- **Скины:** предпросмотр скина и плаща. «Применить» меняет внешний вид через авторизованный Minecraft API. Показываются скины из профиля и ранее увиденные этим лаунчером скины того же игрока; Minecraft API не отдаёт полную историю гардероба официального лаунчера. Список плащей берётся из текущего профиля, чужой плащ применить нельзя. Есть вариант «Без плаща».
-- **Настройки:** никнейм, способ входа, память 1–32 ГБ с шагом 512 МБ, размер окна, полный экран, сворачивание лаунчера и звуки интерфейса. «Сохранить» сохраняет параметры; они используются в следующих запусках. Здесь же обновляется список версий.
+## Updating and keeping your data
 
-Встроен [Monocraft](https://github.com/IdreesInc/Monocraft) с кириллицей, лицензия SIL OFL находится в `Assets/Monocraft-LICENSE.txt`. Установка шрифта в Windows не требуется. Иконки, кнопки, выпадающие списки, карточки и 3D-просмотр рисуются самим приложением. Галерея, файлы и настройки создаются при первом открытии соответствующей вкладки.
+From version 0.2.0 onward, use the green **Update** button when it appears. Eclipse downloads and verifies the installer, closes, updates the existing application folder, and opens again with the same data directory. Update checks never block the first window or PLAY.
 
-Персонаж и платформа находятся по центру. При создании сцены случайно выбирается одна из двух поз по референсу: рука у головы или расслабленный наклон. Поза сохраняется во время работы сцены; дыхание, покачивание корпуса, рук и головы анимируются плавно. Стопы удерживаются на уровне платформы. Геометрия idle обновляется до 60 раз/с, при вращении мышью — до 120 раз/с, вместе с интерфейсом. Скрытая сцена и свёрнутое окно приостанавливают анимацию. Двойной щелчок сбрасывает камеру, сохраняя позу. Иконка зелёного пиксельного затмения встроена в EXE и окно, с вариантами 16–256 px; генератор — `tools/Make-Icon.ps1`.
+For the first upgrade from 0.1.0, download the latest installer and select the **existing Eclipse folder**. The installer recognizes the previous version and offers to update it. It keeps worlds, mods, profiles, screenshots, settings, playtime and Microsoft application configuration. Uninstalling the launcher also keeps game data.
 
-Плащ закреплён за плечами и свисает вниз с небольшим отступом от спины. Наклон корпуса не разворачивает его нижний край внутрь ног; крепление плавно следует idle-анимации.
+Data is stored in `data` beside `Eclipse.exe`:
 
-## Fabric и Quilt
+| Location | Contents |
+| --- | --- |
+| `data/game` | Shared assets, libraries and vanilla game files |
+| `data/instances/<profile-id>` | Modded profile game directories |
+| `data/playtime.json` | Total recorded game time |
+| `data/settings.json` | Launcher preferences, including language |
+| `data/session.bin` | Microsoft session encrypted with Windows DPAPI |
 
-1. В Eclipse нажмите **«+»** справа от списка версий.
-2. Выберите версию Minecraft, Fabric или Quilt и версию загрузчика. Стабильные выпуски предлагаются первыми.
-3. Нажмите **«Установить»**. После загрузки профиль появится в общем списке и будет выбран для запуска.
-4. Во вкладке **«Файлы»** нажмите **«Моды»** и положите туда `.jar`-моды для выбранной версии игры и загрузчика. Fabric API и другие зависимости модов добавляются в ту же папку.
+Use `Eclipse.exe --data-dir "D:\MinecraftData"` for a custom directory. Updates preserve this choice. The existing `%APPDATA%/.minecraft` folder and its accounts are not imported or modified.
 
-Профили сохраняются в `data/profiles.json`. Каждый модифицированный профиль имеет свою игровую папку `data/instances/<id>`: моды, настройки, миры и скриншоты разделены. Vanilla использует `data/game`. Java, библиотеки, ресурсы и базовый клиент общие и скачиваются повторно только при повреждении или отсутствии. Смена версии переключает дерево файлов и галерею; при несохранённом файле запрашивается сохранение.
+Tokens are encrypted for the current Windows user. The game receives the access token as a process argument when required; it is excluded from the JVM argument file and redacted in launcher logs.
 
-Метаданные берутся из официальных [Fabric Meta](https://meta.fabricmc.net/) и [Quilt Meta](https://meta.quiltmc.org/). Библиотеки проверяются по опубликованной SHA-1 и размеру. Повторный запуск установленного профиля использует сохранённый план и проверенные файлы, без запроса каталога загрузчиков. Установка отменяется кнопкой «Отмена»; незавершённые профили не добавляются в список.
+## Build and test
 
-## Звуки интерфейса
-
-Звуки интерфейса включены по умолчанию: короткие тихие щелчки для кнопок, вкладок, списков, выбора скинов/плащей, файлов, галереи, ползунка, ввода текста и управления камерой. При вращении звучат захват и отпускание, при приближении — отдельные тики; движение мыши не запускает звук на каждом кадре. Есть отдельный низкий щелчок ошибки. Отключение в «Настройки → Звуки интерфейса» применяется сразу, «Сохранить» запоминает выбор. Сигналы синтезируются локально после первого показа окна; [PlaySound](https://learn.microsoft.com/en-us/previous-versions/dd743680(v=vs.85)) вызывается из отдельного потока. Диска и сети на нажатиях нет; частые повторы ограничены, очередь не накапливается.
-
-## Обязательная настройка Microsoft для разработчика
-
-**Для режима Microsoft нужен зарегистрированный Client ID с разрешённым доступом к Minecraft API.** Для режима «По никнейму» этот раздел не требуется. Заполненный идентификатор сохраняется при изменении интерфейса. Его наличие в JSON само по себе не подтверждает доступ к API; вход Microsoft и изменение внешнего вида требуют интерактивного входа владельца лицензии.
-
-1. [Зарегистрируйте своё приложение Microsoft](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app). Разрешите личные Microsoft accounts. Лаунчер использует consumer tenant.
-2. В Authentication добавьте платформу **Mobile and desktop applications**, redirect URI **`http://localhost`** (http, без порта, именно в desktop-платформе). Включите **Allow public client flows** и сохраните. Порт выбирается автоматически на время входа; Microsoft игнорирует порт при сопоставлении localhost URI. Используется public client с authorization code + PKCE; **client secret не нужен**, его нельзя встраивать в приложение.
-3. Убедитесь, что вашему Application (client) ID разрешён доступ к Xbox Live и Minecraft Java API. Одна регистрация Entra сама по себе не гарантирует доступ Minecraft. При ответе `403 / Invalid app registration` потребуется разрешение со стороны Microsoft/Mojang. Актуальный порядок необходимо уточнять у Microsoft: [вопрос о доступе сторонних Java-лаунчеров на Microsoft Learn](https://learn.microsoft.com/en-us/answers/questions/5984225/minecraft-services-http-403-invalid-app-registrati).
-4. В `src/Eclipse.Launcher/launcher-config.json` укажите свой идентификатор и пересоберите. Для уже собранной копии можно изменить `artifacts/Eclipse/launcher-config.json`:
-
-```json
-{
-  "MicrosoftClientId": "APPLICATION-CLIENT-ID-ВАШЕГО-ПРИЛОЖЕНИЯ"
-}
-```
-
-Client ID — публичный идентификатор приложения, общий для всех игроков. Игрокам не нужно регистрировать приложения или вводить этот идентификатор. Данные входа принадлежат каждому игроку отдельно.
-
-При `invalid_request / redirect_uri is not valid` исправляется регистрация приложения по пункту 2; замена порта в коде не заменяет регистрацию URI. Перед интерактивным входом Eclipse выполняет анонимный запрос `prompt=none` без аккаунтных cookies и токенов. Известная ошибка регистрации показывается прямо в лаунчере; обычная страница входа передаётся браузеру. При повторном запуске с сохранённой сессией эта предварительная проверка не выполняется.
-
-Анонимная диагностика регистрации, без входа в аккаунт:
-
-```powershell
-dotnet run --project tests/Eclipse.Tests -c Release -- --check-login src/Eclipse.Launcher/launcher-config.json
-```
-
-Эта проверка обнаруживает отказ по `redirect_uri`, но не подтверждает лицензию, успешный вход игрока или доступ к Minecraft API.
-
-При `HTTP 403 / Invalid app registration` от Minecraft требуется отдельное разрешение приложения на Minecraft Java Game Service API. Данные для обращения подготовлены в [MINECRAFT-API-REQUEST.md](MINECRAFT-API-REQUEST.md). Регистрация Entra и лицензия игрока не заменяют разрешение Client ID. Лаунчер сохраняет зашифрованный refresh token при таком отказе, поэтому после разрешения приложения можно повторить запуск.
-
-Проверка всей цепочки с уже сохранённой сессией (обновляет refresh token в зашифрованном кэше, не запускает игру, выводит только этапы и HTTP-статусы):
-
-```powershell
-dotnet run --project tests/Eclipse.Tests -c Release -- --verify-account src/Eclipse.Launcher/launcher-config.json artifacts/Eclipse/data
-```
-
-Для Xbox JSON передаётся с исходным регистром полей `Properties`, `AuthMethod`, `RpsTicket`, `RelyingParty`, `TokenType`, `SandboxId`, `UserTokens`. Стандартный camelCase-режим `JsonContent.Create` для этих запросов несовместим с Xbox API; в сетевом слое явно выбраны `JsonSerializerOptions.Default`. Поля Minecraft, включая `identityToken`, сохраняют свой исходный нижний регистр.
-
-## Проверка лицензии и хранение данных
-
-В режиме Microsoft вход проходит цепочку Microsoft OAuth → Xbox Live → XSTS → Minecraft Services. Перед каждым запуском в этом режиме серверы Minecraft подтверждают лицензию Java и игровой профиль. Проверяются `game_minecraft` / `product_minecraft`; профиль и UUID берутся с сервера. Проверка лицензии и профиля выполняется параллельно. После установки дольше минуты проверка повторяется непосредственно перед созданием процесса Java.
-
-При ошибке Microsoft-входа лаунчер не переключается на другой способ запуска автоматически. Режим «По никнейму» выбирается явно в настройках: используется отдельный локальный профиль с UUID v3 от `OfflinePlayer:<ник>`, без пользовательских токенов, Xbox/XSTS и проверки лицензии. Учётные данные Microsoft для этого режима не читаются и не подставляются в игру.
-
-Refresh token и Minecraft access token сохраняются только в `data/session.bin`, зашифрованном Windows DPAPI для текущего пользователя Windows. Выход удаляет этот файл. Кэш не переносится на другой аккаунт Windows. Токен доступа передаётся Java как аргумент процесса, что необходимо игровому клиенту; в создаваемый лаунчером JVM-файл аргументов токен не записывается, в журнале лаунчера он маскируется.
-
-Общие файлы и vanilla изолированы в `data/game`, игровые папки Fabric / Quilt — в `data/instances`; существующая `%APPDATA%/.minecraft` и её аккаунты не читаются и не изменяются. Папка `data` находится рядом с EXE, поэтому каталог приложения должен быть доступен для записи. Альтернативный путь: `Eclipse.exe --data-dir "D:\MinecraftData"`.
-
-## Скорость
-
-- Первое окно рисуется до HTTP-запросов, чтения конфигурации и расшифровки сессии.
-- Повторное открытие использует локальный список версий. Проверка обновлений — отдельной кнопкой.
-- Подготовленный план запуска сохраняется: повторный запуск не запрашивает описание версии, ресурсов и Java.
-- Загрузки идут параллельно, максимум 12; скачиваются только отсутствующие или повреждённые файлы. Размер и SHA-1 сверяются с метаданными Mojang до установки файла, временные файлы заменяются атомарно.
-- Для неизменённых файлов используются сохранённые размер и время изменения. Повторное хеширование тысяч ресурсов не выполняется; при изменении файла контрольная сумма проверяется заново. Это оптимизация целостности кэша, а не защита от пользователя, намеренно меняющего локальные файлы и их метаданные.
-- Java загружается непосредственно по официальному runtime-манифесту Mojang для выбранной версии. JVM запускается напрямую; `-Xms256M`, выбранный `-Xmx`, без предварительного заполнения всего heap. Длинный classpath передаётся через JVM argument file.
-- Из окружения Java исключаются `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`, `JDK_JAVA_OPTIONS`, `CLASSPATH`.
-
-Проверка лицензии требует сети и добавляет её фактическую задержку. Время загрузки миров, модов и самого клиента определяется Minecraft, Java и компьютером.
-
-## Сборка и проверки
-
-Нужен .NET SDK 10 на Windows. Внешние пакеты не используются; `NuGet.Config` отключает источники пакетов.
+Requirements: Windows and the .NET 10 SDK. The application has no third-party NuGet dependencies. `NuGet.Config` disables package sources for normal development builds.
 
 ```powershell
 .\build.ps1 -Test
 ```
 
-Или:
+Or run the checks directly:
 
 ```powershell
 dotnet build Eclipse.slnx -c Release -m:1
 dotnet run --project tests/Eclipse.Tests -c Release
-dotnet publish src/Eclipse.Launcher -c Release --self-contained false -o artifacts/Eclipse
+dotnet run --project tests/Eclipse.Tests -c Release -- --ui-en .test-data/ui-en
+dotnet run --project tests/Eclipse.Tests -c Release -- --ui .test-data/ui-ru
 ```
 
-Тестовый проект проверяет PKCE по вектору RFC, обязательность лицензии и профиля, отказ при ошибках сети, повторную онлайн-проверку, обновление и отзыв сессии, DPAPI, правила выбора библиотек/аргументов, отсутствие demo-аргументов, проверку загрузок, восстановление повреждённого кэша и блокировку посторонних источников файлов. Ответы авторизации в этих тестах имитируются; они не подтверждают реальный вход Microsoft.
+Tests cover authentication contracts, ownership checks, verified downloads, path handling, settings, skins/capes, mod loaders, playtime, updater integrity, localization and UI layout. Network authentication responses in unit tests are fixtures; passing tests do not establish real Microsoft sign-in or API approval.
 
-Также проверяются сохранение текстов с кириллицей и BOM, отказ от перезаписи внешних изменений, передача параметров окна/памяти, владение плащами и применение через профильный API. UI-проверка с тестовыми файлами и снимками окна:
+The development build in `artifacts/Eclipse` is framework-dependent and requires the Windows Desktop Runtime 10 x64. Release installers are self-contained.
+
+### Windows installer
+
+Install [Inno Setup 6 or 7](https://jrsoftware.org/isinfo.php), then run:
 
 ```powershell
-dotnet run --project tests/Eclipse.Tests -c Release -- --ui .test-data/ui-previews
+.\tools\Build-WindowsRelease.ps1 -Version 0.3.0
 ```
 
-Она проверяет все пять вкладок, A/D → Enter, русские глифы шрифта, вращение и масштаб 3D-сцены, выбор версии, галерею, редактор и сохранение памяти. UI-тест использует изолированные настройки и не открывает вход с Client ID пользователя.
+The script downloads official .NET 10.0.15 runtime packs from NuGet.org, publishes `win-x86` with ReadyToRun, includes runtime/font notices, and produces:
 
-Шрифт Monocraft распространяется под SIL Open Font License 1.1; лицензия включена в `Assets/Monocraft-LICENSE.txt` исходников и сборки. Окно и пиксельные иконки рисуются кодом; отдельный браузер или 3D-движок для сцены не запускаются. Галерея и дерево файлов загружаются только при открытии соответствующей вкладки. Буферы изображения персонажа и контура используются повторно при idle, вращении, масштабировании, изменении скина или размера сцены.
+- `artifacts/release/eclipse-launcher-windows-x86.exe`
+- `artifacts/release/SHA256SUMS.txt`
 
-Анимация навигации рассчитана на 120 кадров/с: используется высокоточный таймер Windows, статические карточки кэшируются. Свечение и частицы рисуются за тёмным хедером и карточками; пиксельный край хедера перекрывает их сверху. У свечения плавный спад без резкой линии. Частицы падают со скоростью 30–42 px/с и постепенно затухают примерно на уровне головы Steve, оставаясь только в верхней части окна. Время жизни — 3–4,2 с. Статические карточки, фон, текстуры платформы и освещения граней кэшируются; геометрия персонажа меняется по idle и вводу. При сворачивании или скрытии окна анимация останавливается. Фактическая частота зависит от нагрузки компьютера, а видимая плавность — также от частоты монитора.
+Use `-IsccPath` to select the Inno Setup compiler. Game files and personal sessions are never included. GitHub Actions builds tagged `v<version>` releases and supports manual builds through **Actions → Windows release**.
 
-Проверка открытия окна без сети и без входа:
+The integration script `tools/Test-WindowsUpgrade.ps1` verifies upgrades in isolated copies with a separate installer registration and no test shortcuts. Existing user installation metadata and its Start menu shortcut are checked for changes.
 
-```powershell
-artifacts/Eclipse/Eclipse.exe --smoke-test --data-dir .test-data/startup
-```
+## Performance and credits
 
-Результат — `.test-data/startup/startup.json`. `firstPaintMs` измеряется от начала `Main` до отрисовки; для полного времени с созданием процесса и загрузкой CLR измеряйте время снаружи. Режим закрывает окно после отрисовки.
+Eclipse paints its first window before network requests or session decryption. Cached launch plans avoid repeated metadata requests. Downloads run in parallel and reuse verified unchanged files. Java launches directly with a JVM argument file and the selected memory limit. Game and mod initialization time is determined by Minecraft, Java and the computer.
 
-Отдельная интеграционная проверка установки с реальных серверов Mojang (загружает файлы, проверяет повторную подготовку и `java -version`, **не запускает Minecraft**):
-
-```powershell
-dotnet run --project tests/Eclipse.Tests -c Release -- --prepare-only 26.3 artifacts/Eclipse/data
-```
-
-## Сборка установщика
-
-Установщик собирается с помощью [Inno Setup 6/7](https://jrsoftware.org/isinfo.php):
-
-```powershell
-.\tools\Build-WindowsRelease.ps1 -Version 0.2.0
-```
-
-Скрипт скачивает официальные runtime-пакеты .NET 10.0.15 с NuGet.org, публикует self-contained `win-x86` с ReadyToRun, добавляет лицензии .NET и создаёт `artifacts/release/eclipse-launcher-windows-x86.exe` и `SHA256SUMS.txt`. `-IsccPath` позволяет указать компилятор вручную. Игровые данные и сессии не упаковываются. GitHub Actions собирает установщик вручную через **Actions → Windows release** или при отправке тега `v<версия>`; тег также создаёт релиз с установщиком и SHA-256.
-
-## Справочные источники
-
-- [Microsoft: authorization code flow и PKCE](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow).
-- [Microsoft: регистрация desktop-приложения и localhost redirect](https://learn.microsoft.com/en-us/entra/identity-platform/scenario-desktop-app-registration).
-- [Официальный манифест версий Mojang](https://piston-meta.mojang.com/mc/game/version_manifest_v2.json).
-- [Официальный манифест Java Mojang](https://piston-meta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json).
-- [minecraft-launcher-lib: реализация цепочки Microsoft/Xbox/Minecraft](https://github.com/JakobDev/minecraft-launcher-lib/blob/master/minecraft_launcher_lib/microsoft_account.py).
-- [Prism Launcher: запрос серверной лицензии](https://github.com/PrismLauncher/PrismLauncher/blob/develop/launcher/minecraft/auth/steps/EntitlementsStep.cpp).
-
-Код лаунчера написан в этом проекте; внешние библиотеки лаунчеров не включены. Minecraft и Java скачиваются при установке с официальных серверов.
+The embedded [Monocraft](https://github.com/IdreesInc/Monocraft) font supports both languages and is distributed under the SIL Open Font License; its license is included in the source and installer. .NET notices are included with self-contained releases. Minecraft and Java are downloaded from official sources when installing a game version. Eclipse is an independent project and is not affiliated with Mojang or Microsoft.

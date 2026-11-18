@@ -34,6 +34,7 @@ if (args is ["--start-launcher-update", var updateInstaller, var updateAppDirect
     return 0;
 }
 if (args is ["--ui", var screenshotDirectory]) return UiTests.Run(root, screenshotDirectory);
+if (args is ["--ui-en", var englishScreenshotDirectory]) return UiTests.Run(root, englishScreenshotDirectory, "en");
 if (args is ["--offline-launch-check", var gameDataDirectory, var launchCheckDirectory])
     return await OfflineLaunchDiagnostics.RunAsync(gameDataDirectory, launchCheckDirectory);
 if (args is ["--offline-launch-check", var loaderDataDirectory, var loaderCheckDirectory, var installedVersion])
@@ -103,6 +104,8 @@ if (args is ["--prepare-only", var version, var dataDirectory])
 }
 
 if (args.Length != 0) { Console.Error.WriteLine("Unknown test arguments"); return 2; }
+var initialLanguage = L.Language;
+L.SetLanguage("ru");
 var passed = 0;
 async Task Test(string name, Func<Task> test)
 {
@@ -722,6 +725,9 @@ await Test("Updates reject foreign repositories, invalid hashes and oversized as
 await Test("GitHub releases without a digest use the published SHA256SUMS file", LauncherFeatureTests.LegacyChecksumAsync);
 await Test("Update download verifies SHA-256 and rejects corruption, truncation and cancellation", () => LauncherFeatureTests.DownloadsAsync(root));
 await Test("One-click installer arguments preserve app and custom data directories", () => LauncherFeatureTests.InstallerArgumentsAsync(root));
+await Test("English is the default for new and upgraded settings; language persists", () => LocalizationTests.SettingsAsync(root, initialLanguage));
+await Test("All English resources are translated and preserve formatting placeholders", LocalizationTests.CatalogAsync);
+await Test("Errors and hour formatting use the selected language", LocalizationTests.MessagesAsync);
 Console.WriteLine($"{passed} tests passed.");
 return 0;
 

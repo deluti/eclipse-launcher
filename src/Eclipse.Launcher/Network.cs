@@ -11,12 +11,12 @@ public sealed class ServiceException(string message, HttpStatusCode status) : Ex
 }
 
 internal sealed class MinecraftAppApprovalException() : InvalidOperationException(
-    "Microsoft и Xbox Live приняли вход, но Minecraft отклонил Client ID приложения: Invalid app registration.\n\n" +
-    "Владельцу Eclipse нужно получить разрешение Minecraft Java Game Service API для своего Client ID.\n\n" +
-    "Страница запроса: https://aka.ms/mce-reviewappid\n" +
-    "Справка сервиса: https://aka.ms/AppRegInfo\n\n" +
-    "Регистрация в Entra и лицензия игрока не заменяют разрешение для приложения. После одобрения можно повторить запуск.\n" +
-    "Данные для запроса подготовлены в MINECRAFT-API-REQUEST.md в папке проекта.");
+    L.T("Microsoft и Xbox Live приняли вход, но Minecraft отклонил Client ID приложения: Invalid app registration.\n\n") +
+    L.T("Владельцу Eclipse нужно получить разрешение Minecraft Java Game Service API для своего Client ID.\n\n") +
+    L.T("Страница запроса: https://aka.ms/mce-reviewappid\n") +
+    L.T("Справка сервиса: https://aka.ms/AppRegInfo\n\n") +
+    L.T("Регистрация в Entra и лицензия игрока не заменяют разрешение для приложения. После одобрения можно повторить запуск.\n") +
+    L.T("Данные для запроса подготовлены в MINECRAFT-API-REQUEST.md в папке проекта."));
 
 public static class Network
 {
@@ -55,9 +55,9 @@ public static class Network
                 var errorBytes = await response.Content.ReadAsByteArrayAsync(timeout.Token).ConfigureAwait(false);
                 if (IsUnapprovedMinecraftApp(errorBytes)) throw new MinecraftAppApprovalException();
             }
-            var message = $"Сервис {host} вернул HTTP {(int)response.StatusCode}.";
+            var message = L.F("Сервис {0} вернул HTTP {1}.", host, (int)response.StatusCode);
             if (url.Contains("xsts.auth"))
-                message += " Проверьте наличие профиля Xbox и разрешения семейной группы Microsoft.";
+                message += L.T(" Проверьте наличие профиля Xbox и разрешения семейной группы Microsoft.");
             throw new ServiceException(message, response.StatusCode);
         }
         using var document = JsonDocument.Parse(await response.Content.ReadAsByteArrayAsync(timeout.Token).ConfigureAwait(false));
@@ -83,5 +83,5 @@ public static class Network
 public static class JsonExtensions
 {
     public static string Text(this JsonElement value, string key) => value.GetProperty(key).GetString()
-        ?? throw new InvalidDataException($"Отсутствует значение {key}.");
+        ?? throw new InvalidDataException(L.F("Отсутствует значение {0}.", key));
 }

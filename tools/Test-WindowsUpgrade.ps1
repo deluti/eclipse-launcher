@@ -1,12 +1,14 @@
 param(
     [string]$SetupPath,
     [string]$LegacyDirectory,
-    [string]$TestHostPath
+    [string]$TestHostPath,
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$ExpectedVersion = '0.3.0',
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$LegacyVersion = '0.2.0'
 )
 $ErrorActionPreference = 'Stop'
 $eclipseWorkspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (-not $SetupPath) { $SetupPath = Join-Path $eclipseWorkspace 'artifacts\release\eclipse-launcher-windows-x86.exe' }
-if (-not $LegacyDirectory) { $LegacyDirectory = Join-Path $eclipseWorkspace '.test-data\legacy-0.1-runtime' }
+if (-not $LegacyDirectory) { $LegacyDirectory = Join-Path $eclipseWorkspace '.test-data\legacy-0.2-runtime' }
 if (-not $TestHostPath) { $TestHostPath = Join-Path $eclipseWorkspace 'tests\Eclipse.Tests\bin\Release\net10.0-windows\Eclipse.Tests.exe' }
 $eclipseTestRoot = Join-Path $eclipseWorkspace ('.test-data\upgrade-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $eclipseTestRoot -Force | Out-Null
@@ -56,7 +58,7 @@ function Check-Hashes($Hashes) {
 function Seed-Legacy([string]$Directory) {
     New-Item -ItemType Directory -Path $Directory -Force | Out-Null
     Get-ChildItem -LiteralPath $LegacyDirectory | Copy-Item -Destination $Directory -Recurse -Force
-    if ([Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $Directory 'Eclipse.dll')).FileVersion -ne '0.1.0.0') { throw 'Expected actual legacy 0.1.0 files' }
+    if ([Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $Directory 'Eclipse.dll')).FileVersion -ne ($LegacyVersion + '.0')) { throw "Expected actual legacy $LegacyVersion files" }
 }
 function Uninstall-Test([string]$Directory) {
     if (-not ([IO.Path]::GetFullPath($Directory)).StartsWith(($eclipseTestRoot + '\'), [StringComparison]::OrdinalIgnoreCase)) { throw 'Uninstall must stay in isolated test directory' }
@@ -72,9 +74,9 @@ $eclipseConfig = Join-Path $eclipseManual 'launcher-config.json'
 $eclipseManualHashes[$eclipseConfig] = (Get-FileHash -LiteralPath $eclipseConfig).Hash
 $eclipseLog = Join-Path $eclipseTestRoot 'manual-upgrade.log'
 Run-Eclipse $SetupPath @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/NOICONS','/TASKS=""','/ECLIPSETESTINSTALL=1',('/DIR="'+$eclipseManual+'"'),('/LOG="'+$eclipseLog+'"'))
-if ([Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $eclipseManual 'Eclipse.dll')).FileVersion -ne '0.2.0.0') { throw 'Manual upgrade failed' }
+if ([Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $eclipseManual 'Eclipse.dll')).FileVersion -ne ($ExpectedVersion + '.0')) { throw 'Manual upgrade failed' }
 Check-Hashes $eclipseManualHashes
-if ([IO.File]::ReadAllText($eclipseLog) -notmatch 'Existing Eclipse detected: 0\.1\.0\.0') { throw 'Legacy-folder detection did not run' }
+if ([IO.File]::ReadAllText($eclipseLog) -notmatch ([regex]::Escape('Existing Eclipse detected: ' + $LegacyVersion + '.0'))) { throw 'Legacy-folder detection did not run' }
 Run-Eclipse (Join-Path $eclipseManual 'Eclipse.exe') @('--smoke-test')
 $eclipseSmoke = Get-Content -LiteralPath (Join-Path $eclipseManual 'data\startup.json') -Raw | ConvertFrom-Json
 Uninstall-Test $eclipseManual
@@ -96,7 +98,7 @@ for ($eclipseTry=0; $eclipseTry -lt 100; $eclipseTry++) {
 }
 if (-not $eclipseRestarted) { throw 'Updated launcher did not restart' }
 try {
-    if ([Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $eclipseAutomatic 'Eclipse.dll')).FileVersion -ne '0.2.0.0') { throw 'Automatic upgrade failed' }
+    if ([Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $eclipseAutomatic 'Eclipse.dll')).FileVersion -ne ($ExpectedVersion + '.0')) { throw 'Automatic upgrade failed' }
     if ($eclipseRestarted.CommandLine -notlike ('*'+$eclipseCustomData+'*')) { throw 'Restart lost custom --data-dir' }
     Check-Hashes $eclipseAutoHashes
     Check-Hashes $eclipseCustomHashes

@@ -50,7 +50,7 @@ internal sealed class SkinScene : Control
         DoubleBuffered = true;
         BackColor = PixelTheme.Background;
         Cursor = Cursors.SizeAll;
-        AccessibleName = "3D-персонаж. Мышь — вращение, колесо — масштаб";
+        AccessibleName = L.T("3D-персонаж. Мышь — вращение, колесо — масштаб");
         ResizeRedraw = true;
         Rebuild();
         MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) { lastMouse = e.Location; Capture = true; Focus(); UiSounds.Play(UiCue.Click); } };
@@ -321,7 +321,7 @@ internal sealed class SkinScene : Control
     internal static Bitmap CreateDefaultSkin()
     {
         using var stream = typeof(SkinScene).Assembly.GetManifestResourceStream("Eclipse.Assets.steve.png")
-            ?? throw new InvalidOperationException("Не найдена встроенная текстура Steve.");
+            ?? throw new InvalidOperationException(L.T("Не найдена встроенная текстура Steve."));
         using var image = Image.FromStream(stream);
         return new Bitmap(image);
     }

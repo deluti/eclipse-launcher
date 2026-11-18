@@ -15,7 +15,7 @@ internal sealed class PlaytimeCounter
     private ITimer? checkpoint;
     internal double TotalHours { get { lock (gate) return Seconds / 3600; } }
     private double Seconds => savedSeconds + (started is { } timestamp ? clock.GetElapsedTime(timestamp).TotalSeconds : 0);
-    internal static string Format(double hours) => hours.ToString("F1", CultureInfo.GetCultureInfo("ru-RU")) + " ч";
+    internal static string Format(double hours) => hours.ToString("F1", L.Culture) + L.T(" ч");
 
     internal PlaytimeCounter(AppPaths paths, TimeProvider? clock = null)
     {
@@ -32,7 +32,7 @@ internal sealed class PlaytimeCounter
     {
         lock (gate)
         {
-            if (started != null) throw new InvalidOperationException("Сессия Minecraft уже учитывается.");
+            if (started != null) throw new InvalidOperationException(L.T("Сессия Minecraft уже учитывается."));
             started = clock.GetTimestamp();
             checkpoint = clock.CreateTimer(_ => Save(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
             return new Session(this);

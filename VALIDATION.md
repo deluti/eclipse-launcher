@@ -1,5 +1,15 @@
 # Проверено 18 ноября 2026
 
+## English and Russian — 0.3.0
+
+English is the default for both new settings and older settings without a language field. Settings provides English / Русский; selection is saved immediately and updates existing controls without recreating the character scene or replacing unsaved input. Labels, accessibility names, tabs, dialogs, progress/errors and playtime formatting are localized. Usernames, filenames and editor content are preserved. Resources are embedded; no network or external translation files are needed at startup. A source audit covered every application string, allowing the native language name Русский in the selector.
+
+63 tests passed in x64 and x86. New checks cover defaults, persistence, unsupported-language fallback, English resource completeness, unchanged formatting placeholders, localized errors, and English/Russian decimal separators. Full UI checks passed in English and Russian at 1040×720 and 1280×850; the Russian run begins in English and restores Russian from disk. Live switching preserves draft nickname/memory values, file/editor text and the character pose. English x64: 120.0 FPS, rotation 120.0 positions/s; Russian: 119.5 FPS, rotation 120.1 positions/s; English x86: 120.0 FPS, rotation 119.9 positions/s. Screenshots: `.test-data/ui-0.3-en`, `ui-0.3-ru`, `ui-0.3-x86-en`.
+
+The installer defaults to English and offers Russian, including translated upgrade confirmations. The upgrade integration test now uses actual version 0.2.0 files and verifies 0.3.0 installation, automatic restart with a custom data directory, preserved worlds/mods/profiles/settings/playtime, and unchanged existing installation metadata and shortcut. This test passed; the installed launcher painted its first frame in 459.4 ms. Launch state is driven by a process-start event rather than translated progress text.
+
+The primary README, API setup guide, repository description and executable description are English. Russian documents remain available as `README.ru.md` and `MINECRAFT-API-REQUEST.ru.md`. The installer includes both README languages. `PREVIEW/launcher-en.png` shows the English interface with fixture data.
+
 ## Часы и обновления — 0.2.0
 
 Счётчик суммирует время жизни процесса Minecraft во всех профилях, использует монотонный таймер, сохраняет `data/playtime.json` каждые 30 секунд и при завершении процесса. До успешного `Process.Start` время не учитывается. Плашка с пиксельными часами и одним десятичным знаком рисуется на фоне панели запуска: кнопка «Играть» закрывает её верхние 12 px. Регрессионная UI-проверка сравнивает нижние 12 строк кнопки с отдельным изображением кнопки: счётчик не может перекрывать её рамку.

@@ -30,16 +30,20 @@ internal static class LauncherFeatureTests
         var paths = new AppPaths(AppContext.BaseDirectory);
         using var http = new HttpClient(new Handler(_ => throw new Exception("No network expected")));
         var minecraft = new Minecraft(http, paths);
+        var starts = 0;
+        minecraft.GameStarted += () => starts++;
         var before = minecraft.Playtime.TotalHours;
         var plan = new InstallPlan { Version = "playtime-fixture-" + Guid.NewGuid().ToString("N"), MainClass = "fixture", JavaRelativePath = "Eclipse.Tests.exe", GameArguments = ["--eclipse-playtime-fixture"] };
         var exit = await minecraft.LaunchOfflineAsync(plan, OfflineAccount.Create("Time_Test"), 1024, new Progress<string>(), default);
         Check(exit == 0, "Process fixture must exit normally");
+        Check(starts == 1, "Launch state uses a process event rather than translated status text");
         Check(minecraft.Playtime.TotalHours - before >= .2 / 3600, "Track the actual child process lifetime");
         var after = minecraft.Playtime.TotalHours;
         plan.JavaRelativePath = "missing-java.exe";
         try { await minecraft.LaunchOfflineAsync(plan, OfflineAccount.Create("Time_Test"), 1024, new Progress<string>(), default); throw new Exception("Expected process error"); }
         catch (System.ComponentModel.Win32Exception) { }
         Check(minecraft.Playtime.TotalHours == after, "Failed launch must not count preparation time");
+        Check(starts == 1, "Failed process start must not raise GameStarted");
         Check(Math.Abs(new PlaytimeCounter(paths).TotalHours - after) < .000001, "Process exit persists elapsed time");
     }
     internal static async Task ReleasesAsync()
@@ -68,7 +72,7 @@ internal static class LauncherFeatureTests
             Metadata("v0.3.0").Replace("\"size\":10", "\"size\":9999999999") })
         {
             using var http = new HttpClient(new Handler(_ => Reply(bad)));
-            await ThrowsAsync<InvalidDataException>(() => new LauncherUpdates(http).CheckAsync(default));
+            await ThrowsAsync<InvalidDataException>(() => new LauncherUpdates(http).CheckAsync(default, new Version(0, 2, 0)));
         }
     }
     internal static async Task LegacyChecksumAsync()
@@ -80,7 +84,7 @@ internal static class LauncherFeatureTests
             requests++;
             return Reply(request.RequestUri!.AbsolutePath.EndsWith("SHA256SUMS.txt") ? new string('b', 64) + "  " + LauncherUpdates.InstallerName + "\n" : metadata);
         }));
-        var release = await new LauncherUpdates(http).CheckAsync(default);
+        var release = await new LauncherUpdates(http).CheckAsync(default, new Version(0, 2, 0));
         Check(requests == 2 && release?.Sha256 == new string('b', 64), "Older GitHub releases can supply SHA256SUMS.txt");
     }
     internal static async Task DownloadsAsync(string root)

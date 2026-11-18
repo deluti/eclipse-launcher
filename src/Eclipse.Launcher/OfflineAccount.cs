@@ -13,7 +13,7 @@ public sealed class OfflineAccount
     {
         name = name?.Trim() ?? "";
         if (name.Length is < 3 or > 16 || name.Any(c => !(c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '_')))
-            throw new InvalidOperationException("Никнейм: 3–16 символов, латинские буквы, цифры и _");
+            throw new InvalidOperationException(L.T("Никнейм: 3–16 символов, латинские буквы, цифры и _"));
         // Match Java UUID.nameUUIDFromBytes for an offline Minecraft profile.
         var bytes = MD5.HashData(Encoding.UTF8.GetBytes("OfflinePlayer:" + name));
         bytes[6] = (byte)((bytes[6] & 0x0f) | 0x30);

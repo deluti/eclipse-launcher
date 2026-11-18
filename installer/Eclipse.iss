@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.2.0"
+  #define AppVersion "0.3.0"
 #endif
 #ifndef PublishDir
   #error PublishDir must point to the clean self-contained win-x86 publish directory
@@ -11,6 +11,7 @@
 [Setup]
 AppId={code:EclipseAppId}
 UsePreviousLanguage=no
+LanguageDetectionMethod=none
 AppName=Eclipse Launcher
 AppVersion={#AppVersion}
 AppPublisher=deluti
@@ -42,8 +43,16 @@ RestartApplications=no
 UninstallDisplayName=Eclipse Launcher
 
 [Languages]
-Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
+
+[CustomMessages]
+english.ExistingInstall=Eclipse %1 is already in this folder.%n%nUpdate it to version {#AppVersion}?%nWorlds, mods, screenshots, settings and playtime will be kept.
+russian.ExistingInstall=В этой папке найдена установка Eclipse %1.%n%nОбновить её до версии {#AppVersion}?%nМиры, моды, скриншоты, настройки и часы будут сохранены.
+english.UpdateCancelled=Update cancelled.
+russian.UpdateCancelled=Обновление отменено.
+english.CloseEclipse=Close Eclipse and try the update again.
+russian.CloseEclipse=Закройте Eclipse и повторите обновление.
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
@@ -118,11 +127,7 @@ begin
     ExistingVersion := '';
     GetVersionNumbersString(DirectoryName + '\Eclipse.dll', ExistingVersion);
     Log('Existing Eclipse detected: ' + ExistingVersion + '; preserving ' + DirectoryName + '\data');
-    MessageText := 'В этой папке найдена предыдущая установка Eclipse';
-    if ExistingVersion <> '' then MessageText := MessageText + ' (' + ExistingVersion + ')';
-    MessageText := MessageText + '.' + #13#10#13#10 +
-      'Обновить её до версии {#AppVersion}?' + #13#10 +
-      'Миры, моды, скриншоты, настройки и счётчик часов будут сохранены.';
+    MessageText := FmtMessage(CustomMessage('ExistingInstall'), [ExistingVersion]);
     if not IsLauncherUpdate then
       Result := SuppressibleMsgBox(MessageText, mbConfirmation, MB_YESNO, IDYES) = IDYES;
   end;
@@ -143,7 +148,7 @@ begin
   Result := '';
   if not ConfirmExistingDirectory then
   begin
-    Result := 'Обновление отменено.';
+    Result := CustomMessage('UpdateCancelled');
     Exit;
   end;
   if IsLauncherUpdate then
@@ -156,7 +161,7 @@ begin
       begin
         WaitResult := EclipseWaitForSingleObject(Handle, 15000);
         EclipseCloseHandle(Handle);
-        if WaitResult <> 0 then Result := 'Закройте Eclipse и повторите обновление.';
+        if WaitResult <> 0 then Result := CustomMessage('CloseEclipse');
       end;
     end;
   end;

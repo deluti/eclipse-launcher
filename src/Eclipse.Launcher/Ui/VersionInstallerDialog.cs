@@ -3,11 +3,11 @@ namespace Eclipse;
 internal sealed class VersionInstallerDialog : Form
 {
     private readonly ModLoaders loaders;
-    private readonly PixelComboBox game = new() { Width = 300, AccessibleName = "Версия Minecraft для установки" };
-    private readonly PixelComboBox loader = new() { Width = 300, AccessibleName = "Загрузчик модов" };
-    private readonly PixelComboBox version = new() { Width = 300, AccessibleName = "Версия загрузчика" };
-    private readonly PixelButton install = new() { Text = "Установить", Primary = true, Enabled = false, Bounds = new Rectangle(30, 312, 260, 48) };
-    private readonly PixelButton cancel = new() { Text = "Закрыть", Bounds = new Rectangle(330, 312, 220, 48) };
+    private readonly PixelComboBox game = new() { Width = 300, AccessibleName = L.T("Версия Minecraft для установки") };
+    private readonly PixelComboBox loader = new() { Width = 300, AccessibleName = L.T("Загрузчик модов") };
+    private readonly PixelComboBox version = new() { Width = 300, AccessibleName = L.T("Версия загрузчика") };
+    private readonly PixelButton install = new() { Text = L.T("Установить"), Primary = true, Enabled = false, Bounds = new Rectangle(30, 312, 260, 48) };
+    private readonly PixelButton cancel = new() { Text = L.T("Закрыть"), Bounds = new Rectangle(330, 312, 220, 48) };
     private readonly Label status = new() { AutoSize = false, Bounds = new Rectangle(30, 250, 520, 46), ForeColor = PixelTheme.Muted };
     private readonly CancellationTokenSource lifetime = new();
     private CancellationTokenSource? catalog;
@@ -21,13 +21,13 @@ internal sealed class VersionInstallerDialog : Form
     internal VersionInstallerDialog(ModLoaders loaders, IEnumerable<string> games, string selectedGame)
     {
         this.loaders = loaders;
-        Text = "Установить версию"; Font = PixelTheme.Font(); ForeColor = PixelTheme.Text; BackColor = PixelTheme.Background;
+        Text = L.T("Установить версию"); Font = PixelTheme.Font(); ForeColor = PixelTheme.Text; BackColor = PixelTheme.Background;
         ClientSize = new Size(580, 390); FormBorderStyle = FormBorderStyle.FixedDialog;
         StartPosition = FormStartPosition.CenterParent; MaximizeBox = MinimizeBox = false;
-        var heading = PixelTheme.TextLabel("УСТАНОВИТЬ ВЕРСИЮ", 20); heading.Location = new Point(30, 24);
+        var heading = PixelTheme.TextLabel(L.T("УСТАНОВИТЬ ВЕРСИЮ"), 20); heading.Location = new Point(30, 24);
         var gameLabel = PixelTheme.TextLabel("MINECRAFT"); gameLabel.Location = new Point(30, 86); game.Location = new Point(250, 76);
-        var loaderLabel = PixelTheme.TextLabel("ЗАГРУЗЧИК"); loaderLabel.Location = new Point(30, 138); loader.Location = new Point(250, 128);
-        var versionLabel = PixelTheme.TextLabel("ВЕРСИЯ"); versionLabel.Location = new Point(30, 190); version.Location = new Point(250, 180);
+        var loaderLabel = PixelTheme.TextLabel(L.T("ЗАГРУЗЧИК")); loaderLabel.Location = new Point(30, 138); loader.Location = new Point(250, 128);
+        var versionLabel = PixelTheme.TextLabel(L.T("ВЕРСИЯ")); versionLabel.Location = new Point(30, 190); version.Location = new Point(250, 180);
         game.Items.AddRange(games.Cast<object>()); game.SelectedItem = selectedGame;
         if (game.SelectedIndex < 0 && game.Items.Count > 0) game.SelectedIndex = 0;
         loader.Items.AddRange(["Fabric", "Quilt"]); loader.SelectedIndex = 0;
@@ -49,7 +49,7 @@ internal sealed class VersionInstallerDialog : Form
         catalog = request;
         var current = ++generation;
         install.Enabled = false; version.Items.Clear(); version.SelectedIndex = -1;
-        status.Text = "Получение версий загрузчика…";
+        status.Text = L.T("Получение версий загрузчика…");
         try
         {
             var available = await loaders.VersionsAsync(Loader, gameVersion, request.Token);
@@ -57,7 +57,7 @@ internal sealed class VersionInstallerDialog : Form
             version.Items.AddRange(available.Cast<object>());
             version.SelectedIndex = available.Count > 0 ? 0 : -1;
             install.Enabled = available.Count > 0;
-            status.Text = available.Count > 0 ? "" : "Для этой версии загрузчик пока недоступен";
+            status.Text = available.Count > 0 ? "" : L.T("Для этой версии загрузчик пока недоступен");
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) when (ex is HttpRequestException or ServiceException or InvalidDataException or System.Text.Json.JsonException)
@@ -70,7 +70,7 @@ internal sealed class VersionInstallerDialog : Form
         var loaderName = Loader;
         var success = false;
         installation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
-        game.Enabled = loader.Enabled = version.Enabled = install.Enabled = false; cancel.Text = "Отмена";
+        game.Enabled = loader.Enabled = version.Enabled = install.Enabled = false; cancel.Text = L.T("Отмена");
         try
         {
             var progress = new Progress<string>(text => { if (!IsDisposed) status.Text = text; });
@@ -79,7 +79,7 @@ internal sealed class VersionInstallerDialog : Form
             InstalledProfile = new(plan.Version, gameVersion, loaderName, choice.Version);
             success = true;
         }
-        catch (OperationCanceledException) { if (!IsDisposed) status.Text = "Установка отменена"; }
+        catch (OperationCanceledException) { if (!IsDisposed) status.Text = L.T("Установка отменена"); }
         catch (Exception ex) when (ex is HttpRequestException or ServiceException or InvalidDataException or IOException or System.Text.Json.JsonException)
         { UiSounds.Play(UiCue.Error); if (!IsDisposed) status.Text = ex.Message; }
         finally
@@ -87,7 +87,7 @@ internal sealed class VersionInstallerDialog : Form
             installation.Dispose(); installation = null;
             if (!IsDisposed)
             {
-                game.Enabled = loader.Enabled = version.Enabled = true; install.Enabled = version.SelectedItem != null; cancel.Text = "Закрыть";
+                game.Enabled = loader.Enabled = version.Enabled = true; install.Enabled = version.SelectedItem != null; cancel.Text = L.T("Закрыть");
                 if (success) { DialogResult = DialogResult.OK; Close(); }
                 else if (closeWhenDone) Close();
             }

@@ -22,7 +22,7 @@ public sealed class AppPaths
         var fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         var full = Path.GetFullPath(Path.Combine(fullRoot, relative.Replace('/', Path.DirectorySeparatorChar)));
         if (!full.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("Недопустимый путь в метаданных игры.");
+            throw new InvalidDataException(L.T("Недопустимый путь в метаданных игры."));
         return full;
     }
 }
@@ -46,6 +46,7 @@ public static class JsonStore
 
 public sealed class Settings
 {
+    public string Language { get; set; } = "en";
     public string Version { get; set; } = "";
     public int MemoryMb { get; set; } = 4096;
     public int WindowWidth { get; set; } = 1280;

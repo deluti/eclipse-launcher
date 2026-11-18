@@ -4,7 +4,7 @@ internal sealed class PlaytimeBadge
 {
     private string caption = PlaytimeCounter.Format(0);
     internal Rectangle Bounds { get; set; }
-    internal string AccessibleName => "Время в Minecraft: " + caption;
+    internal string AccessibleName => L.T("Время в Minecraft: ") + caption;
     internal bool SetHours(double hours)
     {
         var next = PlaytimeCounter.Format(hours);

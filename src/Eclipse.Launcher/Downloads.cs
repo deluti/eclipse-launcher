@@ -39,7 +39,7 @@ public sealed class Downloads
                 var now = Environment.TickCount64;
                 var previous = Interlocked.Read(ref lastReport);
                 if (now - previous > 120 && Interlocked.CompareExchange(ref lastReport, now, previous) == previous)
-                    progress.Report($"Подготовка файлов: {count:N0} / {unique.Length:N0}");
+                    progress.Report(L.F("Подготовка файлов: {0:N0} / {1:N0}", count, unique.Length));
             }).ConfigureAwait(false);
         }
         finally { SaveReceipts(); }
@@ -72,7 +72,7 @@ public sealed class Downloads
                 await using (var input = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
                     await input.CopyToAsync(output, ct).ConfigureAwait(false);
                 if (new FileInfo(temporary).Length != file.Size || !await MatchesAsync(temporary, file.Sha1, ct).ConfigureAwait(false))
-                    throw new InvalidDataException("Контрольная сумма загрузки не совпала: " + Path.GetFileName(target));
+                    throw new InvalidDataException(L.T("Контрольная сумма загрузки не совпала: ") + Path.GetFileName(target));
                 File.Move(temporary, target, true);
                 Remember(file, target);
                 return;
@@ -89,7 +89,7 @@ public sealed class Downloads
         string[] hosts = ["piston-meta.mojang.com", "piston-data.mojang.com", "launchermeta.mojang.com", "launcher.mojang.com", "libraries.minecraft.net", "resources.download.minecraft.net", "maven.fabricmc.net", "maven.quiltmc.org", "repo.maven.apache.org"];
         if (uri.Scheme != "https" || !hosts.Contains(uri.Host, StringComparer.OrdinalIgnoreCase)
             || file.Size < 0 || file.Sha1.Length != 40 || file.Sha1.Any(c => !Uri.IsHexDigit(c)))
-            throw new InvalidDataException("Недопустимый источник или контрольная сумма файла Minecraft.");
+            throw new InvalidDataException(L.T("Недопустимый источник или контрольная сумма файла Minecraft."));
     }
 
     private void Remember(DownloadFile file, string target)

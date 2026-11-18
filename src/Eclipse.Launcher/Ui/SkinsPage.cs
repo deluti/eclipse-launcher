@@ -5,8 +5,8 @@ internal sealed class SkinsPage : UserControl
     private readonly SkinScene scene = new() { Dock = DockStyle.Fill, FrameDriven = true };
     private readonly FlowLayoutPanel skins = new() { Dock = DockStyle.Top, Height = 172, AutoScroll = true, WrapContents = false };
     private readonly FlowLayoutPanel capes = new() { Dock = DockStyle.Fill, AutoScroll = true };
-    private readonly PixelButton apply = new() { Text = "Применить", Primary = true, Dock = DockStyle.Bottom, Height = 52, Enabled = false };
-    private readonly Label name = PixelTheme.TextLabel("Войдите в Microsoft", 16);
+    private readonly PixelButton apply = new() { Text = L.T("Применить"), Primary = true, Dock = DockStyle.Bottom, Height = 52, Enabled = false };
+    private readonly Label name = PixelTheme.TextLabel(L.T("Войдите в Microsoft"), 16);
     private readonly Action<string> report;
     private readonly CancellationTokenSource lifetime = new();
     private AppearanceService? service;
@@ -20,8 +20,8 @@ internal sealed class SkinsPage : UserControl
     {
         this.report = report; BackColor = PixelTheme.Background;
         var right = new Panel { Dock = DockStyle.Right, Width = 388, Padding = new Padding(18, 10, 18, 18), BackColor = PixelTheme.Background };
-        var skinLabel = PixelTheme.TextLabel("МОИ СКИНЫ", 14); skinLabel.Dock = DockStyle.Top; skinLabel.Height = 32; skinLabel.AutoSize = false;
-        var capeLabel = PixelTheme.TextLabel("МОИ ПЛАЩИ", 14); capeLabel.Dock = DockStyle.Top; capeLabel.Height = 38; capeLabel.AutoSize = false;
+        var skinLabel = PixelTheme.TextLabel(L.T("МОИ СКИНЫ"), 14); skinLabel.Dock = DockStyle.Top; skinLabel.Height = 32; skinLabel.AutoSize = false;
+        var capeLabel = PixelTheme.TextLabel(L.T("МОИ ПЛАЩИ"), 14); capeLabel.Dock = DockStyle.Top; capeLabel.Height = 38; capeLabel.AutoSize = false;
         var viewport = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = BackColor };
         var wardrobe = new Panel { Dock = DockStyle.Top, Height = 400, BackColor = BackColor };
         wardrobe.Controls.Add(capes); wardrobe.Controls.Add(capeLabel); wardrobe.Controls.Add(skins); wardrobe.Controls.Add(skinLabel);
@@ -31,7 +31,7 @@ internal sealed class SkinsPage : UserControl
         right.Controls.Add(viewport); right.Controls.Add(applyArea);
         var bar = new Panel { Dock = DockStyle.Top, Height = 58, Padding = new Padding(24, 8, 20, 8) };
         name.AutoSize = false; name.Dock = DockStyle.Fill; name.TextAlign = ContentAlignment.MiddleLeft;
-        var reload = new PixelButton { Text = "Обновить", Dock = DockStyle.Right, Width = 145 };
+        var reload = new PixelButton { Text = L.T("Обновить"), Dock = DockStyle.Right, Width = 145 };
         bar.Controls.Add(name); bar.Controls.Add(reload);
         Controls.Add(scene); Controls.Add(right); Controls.Add(bar);
         reload.Click += async (_, _) => { if (ReloadRequested != null) await ReloadRequested(); };
@@ -41,14 +41,15 @@ internal sealed class SkinsPage : UserControl
     {
         this.service = service;
         var current = ++generation;
-        name.Text = profile?.Name ?? "Войдите в Microsoft";
+        if (profile == null) L.SetText(name, "Войдите в Microsoft");
+        else { L.PreserveUserText(name); name.Text = profile.Name; }
         foreach (var item in skins.Controls.Cast<Control>().Concat(capes.Controls.Cast<Control>()).ToArray()) item.Dispose();
         skins.Controls.Clear(); capes.Controls.Clear();
         chosenSkin = profile?.Skins.FirstOrDefault(s => s.Active) ?? profile?.Skins.FirstOrDefault();
         chosenCape = profile?.Capes.FirstOrDefault(s => s.Active);
         apply.Enabled = profile != null;
         if (profile == null) { scene.SetAppearance(null, false, null); return; }
-        var none = new TextureTile(null, true, null, "Без плаща") { Selected = chosenCape == null };
+        var none = new TextureTile(null, true, null, L.T("Без плаща")) { Selected = chosenCape == null };
         none.Click += async (_, _) => { chosenCape = null; SelectTile(capes, none); await UpdatePreviewAsync(current); };
         capes.Controls.Add(none);
         try
@@ -58,7 +59,7 @@ internal sealed class SkinsPage : UserControl
             {
                 using var bitmap = await service.TextureAsync(item, lifetime.Token);
                 if (current != generation || IsDisposed) return;
-                var tile = new TextureTile(item, false, bitmap, string.IsNullOrEmpty(item.Alias) ? $"Скин {++number:00}" : item.Alias) { Selected = item == chosenSkin };
+                var tile = new TextureTile(item, false, bitmap, string.IsNullOrEmpty(item.Alias) ? L.F("Скин {0:00}", ++number) : item.Alias) { Selected = item == chosenSkin };
                 tile.Click += async (_, _) => { chosenSkin = item; SelectTile(skins, tile); await UpdatePreviewAsync(current); };
                 skins.Controls.Add(tile);
             }
@@ -66,14 +67,14 @@ internal sealed class SkinsPage : UserControl
             {
                 using var bitmap = await service.TextureAsync(item, lifetime.Token);
                 if (current != generation || IsDisposed) return;
-                var tile = new TextureTile(item, true, bitmap, string.IsNullOrEmpty(item.Alias) ? "Плащ" : item.Alias) { Selected = item == chosenCape };
+                var tile = new TextureTile(item, true, bitmap, string.IsNullOrEmpty(item.Alias) ? L.T("Плащ") : item.Alias) { Selected = item == chosenCape };
                 tile.Click += async (_, _) => { chosenCape = item; SelectTile(capes, tile); await UpdatePreviewAsync(current); };
                 capes.Controls.Add(tile);
             }
             await UpdatePreviewAsync(current);
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) when (ex is IOException or HttpRequestException or ArgumentException) { report("Не удалось загрузить текстуру: " + ex.Message); }
+        catch (Exception ex) when (ex is IOException or HttpRequestException or ArgumentException) { report(L.T("Не удалось загрузить текстуру: ") + ex.Message); }
     }
     private static void SelectTile(FlowLayoutPanel panel, TextureTile tile)
     {

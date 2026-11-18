@@ -40,12 +40,12 @@ public sealed class LicensedAccount
         await Task.WhenAll(entitlementTask, profileTask).ConfigureAwait(false);
         var entitlements = await entitlementTask.ConfigureAwait(false);
         if (!HasLicense(entitlements))
-            throw new InvalidOperationException("На этом аккаунте нет действующей лицензии Minecraft Java Edition. Запуск запрещён.");
+            throw new InvalidOperationException(L.T("На этом аккаунте нет действующей лицензии Minecraft Java Edition. Запуск запрещён."));
         var profile = await profileTask.ConfigureAwait(false);
         var name = profile.Text("name");
         var uuid = profile.Text("id");
         if (!Regex.IsMatch(uuid, "\\A[0-9a-fA-F]{32}\\z") || !Regex.IsMatch(name, "\\A[A-Za-z0-9_]{1,16}\\z"))
-            throw new InvalidDataException("Minecraft вернул некорректный игровой профиль.");
+            throw new InvalidDataException(L.T("Minecraft вернул некорректный игровой профиль."));
         return new LicensedAccount(name, uuid, token, clientId, xuid, profile);
     }
 
@@ -70,7 +70,7 @@ public sealed class Authentication(HttpClient http, AppPaths paths, string clien
     public async Task<LicensedAccount> AuthenticateAsync(bool interactive, IProgress<string> progress, CancellationToken ct)
     {
         if (!IsConfigured)
-            throw new InvalidOperationException("Разработчик должен указать собственный MicrosoftClientId в launcher-config.json и получить доступ к Minecraft API. После настройки игрок входит в свой аккаунт Microsoft кнопкой «Войти». Пароль вводится только на сайте Microsoft.");
+            throw new InvalidOperationException(L.T("Разработчик должен указать собственный MicrosoftClientId в launcher-config.json и получить доступ к Minecraft API. После настройки игрок входит в свой аккаунт Microsoft кнопкой «Войти». Пароль вводится только на сайте Microsoft."));
         Session? session = null;
         try { session = SecretStore.Load<Session>(SessionPath); }
         catch (Exception ex) when (ex is CryptographicException or JsonException) { SignOut(); }
@@ -78,7 +78,7 @@ public sealed class Authentication(HttpClient http, AppPaths paths, string clien
 
         if (!interactive && session != null && session.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(2))
         {
-            progress.Report("Проверка лицензии Minecraft…");
+            progress.Report(L.T("Проверка лицензии Minecraft…"));
             try { return await VerifyAndSaveAsync(session, ct).ConfigureAwait(false); }
             catch (ServiceException ex) when (ex.Status == HttpStatusCode.Unauthorized) { /* Refresh once. */ }
         }
@@ -86,7 +86,7 @@ public sealed class Authentication(HttpClient http, AppPaths paths, string clien
         JsonElement microsoft;
         if (!interactive && !string.IsNullOrEmpty(session?.RefreshToken))
         {
-            progress.Report("Обновление входа Microsoft…");
+            progress.Report(L.T("Обновление входа Microsoft…"));
             try
             {
                 microsoft = await TokenAsync(new() { ["grant_type"] = "refresh_token", ["refresh_token"] = session.RefreshToken }, ct).ConfigureAwait(false);
@@ -94,12 +94,12 @@ public sealed class Authentication(HttpClient http, AppPaths paths, string clien
             catch (ServiceException ex) when (ex.Status is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
             {
                 SignOut();
-                throw new InvalidOperationException("Срок входа Microsoft истёк. Нажмите «Войти через Microsoft».");
+                throw new InvalidOperationException(L.T("Срок входа Microsoft истёк. Нажмите «Войти через Microsoft»."));
             }
         }
         else
         {
-            progress.Report("Завершите вход в браузере Microsoft…");
+            progress.Report(L.T("Завершите вход в браузере Microsoft…"));
             microsoft = await BrowserLoginAsync(ct).ConfigureAwait(false);
         }
 
@@ -110,7 +110,7 @@ public sealed class Authentication(HttpClient http, AppPaths paths, string clien
         };
         // Persist rotated refresh credentials even if the downstream Xbox service is temporarily unavailable.
         SecretStore.Save(SessionPath, session);
-        progress.Report("Вход Xbox Live…");
+        progress.Report(L.T("Вход Xbox Live…"));
         var xbox = await Network.JsonAsync(http, HttpMethod.Post, "https://user.auth.xboxlive.com/user/authenticate",
             new { Properties = new { AuthMethod = "RPS", SiteName = "user.auth.xboxlive.com", RpsTicket = "d=" + microsoft.Text("access_token") }, RelyingParty = "http://auth.xboxlive.com", TokenType = "JWT" }, null, ct).ConfigureAwait(false);
         var xsts = await Network.JsonAsync(http, HttpMethod.Post, "https://xsts.auth.xboxlive.com/xsts/authorize",
@@ -119,13 +119,13 @@ public sealed class Authentication(HttpClient http, AppPaths paths, string clien
         var claims = xsts.GetProperty("DisplayClaims").GetProperty("xui")[0];
         if (claims.TryGetProperty("xid", out var xid)) session.Xuid = xid.GetString() ?? "";
         if (hash != xbox.GetProperty("DisplayClaims").GetProperty("xui")[0].Text("uhs"))
-            throw new InvalidDataException("Xbox вернул несовпадающие идентификаторы аккаунта.");
-        progress.Report("Получение сессии Minecraft…");
+            throw new InvalidDataException(L.T("Xbox вернул несовпадающие идентификаторы аккаунта."));
+        progress.Report(L.T("Получение сессии Minecraft…"));
         var minecraft = await Network.JsonAsync(http, HttpMethod.Post, "https://api.minecraftservices.com/authentication/login_with_xbox",
             new { identityToken = $"XBL3.0 x={hash};{xsts.Text("Token")}" }, null, ct).ConfigureAwait(false);
         session.MinecraftToken = minecraft.Text("access_token");
         session.ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(minecraft.GetProperty("expires_in").GetInt32());
-        progress.Report("Проверка лицензии Minecraft…");
+        progress.Report(L.T("Проверка лицензии Minecraft…"));
         return await VerifyAndSaveAsync(session, ct).ConfigureAwait(false);
     }
 
@@ -181,13 +181,13 @@ public sealed class Authentication(HttpClient http, AppPaths paths, string clien
             var parameters = ParseQuery(new Uri("http://localhost" + target).Query);
             if (!parameters.TryGetValue("state", out var returnedState)
                 || !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(state), Encoding.UTF8.GetBytes(returnedState))) continue;
-            var body = Encoding.UTF8.GetBytes("<!doctype html><meta charset=utf-8><title>Eclipse</title>Возвращайтесь в Eclipse. Это окно можно закрыть.");
+            var body = Encoding.UTF8.GetBytes(L.T("<!doctype html><meta charset=utf-8><title>Eclipse</title>Возвращайтесь в Eclipse. Это окно можно закрыть."));
             var header = Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {body.Length}\r\nConnection: close\r\nCache-Control: no-store\r\nContent-Security-Policy: default-src 'none'\r\n\r\n");
             await stream.WriteAsync(header, deadline.Token).ConfigureAwait(false);
             await stream.WriteAsync(body, deadline.Token).ConfigureAwait(false);
-            if (parameters.ContainsKey("error")) throw new InvalidOperationException("Вход Microsoft отменён или не разрешён.");
+            if (parameters.ContainsKey("error")) throw new InvalidOperationException(L.T("Вход Microsoft отменён или не разрешён."));
             if (!parameters.TryGetValue("code", out var code) || string.IsNullOrWhiteSpace(code))
-                throw new InvalidDataException("Microsoft не вернул код входа.");
+                throw new InvalidDataException(L.T("Microsoft не вернул код входа."));
             return await TokenAsync(new() { ["grant_type"] = "authorization_code", ["code"] = code,
                 ["redirect_uri"] = redirect, ["code_verifier"] = verifier }, deadline.Token).ConfigureAwait(false);
         }

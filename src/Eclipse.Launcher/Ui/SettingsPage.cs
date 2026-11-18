@@ -4,36 +4,39 @@ internal sealed class SettingsPage : UserControl
 {
     private readonly TextBox memory = new() { BorderStyle = BorderStyle.None, TextAlign = HorizontalAlignment.Center, AutoSize = false, Width = 104, Height = 28 };
     private readonly PixelSlider slider = new();
-    private readonly TextBox nickname = new() { BorderStyle = BorderStyle.None, AutoSize = false, MaxLength = 16, AccessibleName = "Никнейм" };
-    private readonly PixelComboBox loginMode = new() { Width = 338, AccessibleName = "Способ входа" };
+    private readonly TextBox nickname = new() { BorderStyle = BorderStyle.None, AutoSize = false, MaxLength = 16, AccessibleName = L.T("Никнейм") };
+    private readonly PixelComboBox loginMode = new() { Width = 338, AccessibleName = L.T("Способ входа") };
     private readonly PixelComboBox resolution = new() { Width = 230 };
-    private readonly CheckBox fullscreen = new() { Text = "Полный экран", AutoSize = true, FlatStyle = FlatStyle.Flat };
-    private readonly CheckBox minimize = new() { Text = "Свернуть лаунчер при запуске", AutoSize = true, FlatStyle = FlatStyle.Flat };
-    private readonly CheckBox sounds = new() { Text = "Звуки интерфейса", AutoSize = true, FlatStyle = FlatStyle.Flat };
+    private readonly PixelComboBox language = new() { Width = 260, AccessibleName = L.T("Язык") };
+    private bool binding;
+    public event Action<string>? LanguageChanged;
+    private readonly CheckBox fullscreen = new() { Text = L.T("Полный экран"), AutoSize = true, FlatStyle = FlatStyle.Flat };
+    private readonly CheckBox minimize = new() { Text = L.T("Свернуть лаунчер при запуске"), AutoSize = true, FlatStyle = FlatStyle.Flat };
+    private readonly CheckBox sounds = new() { Text = L.T("Звуки интерфейса"), AutoSize = true, FlatStyle = FlatStyle.Flat };
     public event Action? SaveRequested;
     public event Action? RefreshVersionsRequested;
     public SettingsPage()
     {
         BackColor = PixelTheme.Background;
-        var panel = new Panel { Width = 680, Height = 406, BackColor = PixelTheme.Background, Anchor = AnchorStyles.Top };
-        var title = PixelTheme.TextLabel("НАСТРОЙКИ ЗАПУСКА", 22); title.Location = new Point(0, 12);
-        var nicknameTitle = PixelTheme.TextLabel("НИКНЕЙМ", 14); nicknameTitle.Location = new Point(0, 48);
-        var modeTitle = PixelTheme.TextLabel("ВХОД", 14); modeTitle.Location = new Point(340, 48);
+        var panel = new Panel { Width = 680, Height = 450, BackColor = PixelTheme.Background, Anchor = AnchorStyles.Top };
+        var title = PixelTheme.TextLabel(L.T("НАСТРОЙКИ ЗАПУСКА"), 22); title.Location = new Point(0, 12);
+        var nicknameTitle = PixelTheme.TextLabel(L.T("НИКНЕЙМ"), 14); nicknameTitle.Location = new Point(0, 48);
+        var modeTitle = PixelTheme.TextLabel(L.T("ВХОД"), 14); modeTitle.Location = new Point(340, 48);
         PixelTheme.Style(nickname); nickname.Bounds = new Rectangle(0, 72, 300, 34);
-        loginMode.Location = new Point(340, 72); loginMode.Items.AddRange(["По никнейму", "Microsoft"]);
+        loginMode.Location = new Point(340, 72); loginMode.Items.AddRange([L.T("По никнейму"), "Microsoft"]);
         loginMode.SelectedIndexChanged += (_, _) => nickname.Enabled = loginMode.SelectedIndex == 0;
         nickname.KeyPress += (_, _) => UiSounds.Play(UiCue.Tick);
-        var memoryTitle = PixelTheme.TextLabel("ПАМЯТЬ MINECRAFT", 14); memoryTitle.Location = new Point(0, 126);
-        PixelTheme.Style(memory); memory.Location = new Point(494, 118); memory.AccessibleName = "Память Minecraft, МБ";
+        var memoryTitle = PixelTheme.TextLabel(L.T("ПАМЯТЬ MINECRAFT"), 14); memoryTitle.Location = new Point(0, 126);
+        PixelTheme.Style(memory); memory.Location = new Point(494, 118); memory.AccessibleName = L.T("Память Minecraft, МБ");
         var less = new PixelButton { Text = "-", Bounds = new Rectangle(456, 116, 32, 32) };
         var more = new PixelButton { Text = "+", Bounds = new Rectangle(604, 116, 32, 32) };
         void Step(int delta) { var current = int.TryParse(memory.Text, out var parsed) ? parsed : 4096; memory.Text = Math.Clamp(current + delta, 1024, 32768).ToString(); }
         less.Click += (_, _) => Step(-512); more.Click += (_, _) => Step(512);
-        var units = PixelTheme.TextLabel("МБ", 12); units.Location = new Point(642, 128);
+        var units = PixelTheme.TextLabel(L.T("МБ"), 12); units.Location = new Point(642, 128);
         slider.Bounds = new Rectangle(0, 162, 678, 30);
-        var low = PixelTheme.TextLabel("1 ГБ", 12); low.ForeColor = PixelTheme.Muted; low.Location = new Point(0, 198);
-        var high = PixelTheme.TextLabel("32 ГБ", 12); high.ForeColor = PixelTheme.Muted; high.Location = new Point(628, 198);
-        var sizeTitle = PixelTheme.TextLabel("РАЗМЕР ОКНА", 14); sizeTitle.Location = new Point(0, 232);
+        var low = PixelTheme.TextLabel(L.T("1 ГБ"), 12); low.ForeColor = PixelTheme.Muted; low.Location = new Point(0, 198);
+        var high = PixelTheme.TextLabel(L.T("32 ГБ"), 12); high.ForeColor = PixelTheme.Muted; high.Location = new Point(628, 198);
+        var sizeTitle = PixelTheme.TextLabel(L.T("РАЗМЕР ОКНА"), 14); sizeTitle.Location = new Point(0, 232);
         resolution.Location = new Point(0, 258);
         resolution.Items.AddRange(["854 × 480", "1280 × 720", "1600 × 900", "1920 × 1080", "2560 × 1440"]);
         PixelTheme.Style(fullscreen); fullscreen.Location = new Point(288, 266); fullscreen.BackColor = BackColor;
@@ -42,18 +45,24 @@ internal sealed class SettingsPage : UserControl
         sounds.CheckedChanged += (_, _) => UiSounds.Enabled = sounds.Checked;
         foreach (var option in new[] { fullscreen, minimize, sounds }) option.Click += (_, _) => UiSounds.Play(UiCue.Select);
         memory.KeyPress += (_, _) => UiSounds.Play(UiCue.Tick);
-        var save = new PixelButton { Text = "Сохранить", Primary = true, Bounds = new Rectangle(0, 356, 250, 42) };
-        var refresh = new PixelButton { Text = "Обновить версии", Bounds = new Rectangle(290, 356, 270, 42) };
+        var languageTitle = PixelTheme.TextLabel(L.T("ЯЗЫК"), 14); languageTitle.Location = new Point(0, 360);
+        language.Location = new Point(200, 350);
+        language.Items.AddRange(["English", "Русский"]);
+        language.SelectedIndexChanged += (_, _) => { if (!binding) LanguageChanged?.Invoke(language.SelectedIndex == 1 ? "ru" : "en"); };
+        var save = new PixelButton { Text = L.T("Сохранить"), Primary = true, Bounds = new Rectangle(0, 406, 250, 42) };
+        var refresh = new PixelButton { Text = L.T("Обновить версии"), Bounds = new Rectangle(290, 406, 270, 42) };
         save.Click += (_, _) => SaveRequested?.Invoke();
         refresh.Click += (_, _) => RefreshVersionsRequested?.Invoke();
         slider.Changed += value => memory.Text = value.ToString();
         memory.TextChanged += (_, _) => { if (int.TryParse(memory.Text, out var parsed)) slider.SetValue(parsed); };
-        panel.Controls.AddRange([title, nicknameTitle, nickname, modeTitle, loginMode, memoryTitle, memory, less, more, units, slider, low, high, sizeTitle, resolution, fullscreen, minimize, sounds, save, refresh]);
+        panel.Controls.AddRange([title, nicknameTitle, nickname, modeTitle, loginMode, memoryTitle, memory, less, more, units, slider, low, high, sizeTitle, resolution, fullscreen, minimize, sounds, languageTitle, language, save, refresh]);
         Controls.Add(panel);
         Resize += (_, _) => panel.Location = new Point(Math.Max(24, (Width - panel.Width) / 2), Math.Max(6, (Height - panel.Height) / 3));
+        L.CaptureTree(this);
     }
     public void Bind(Settings settings)
     {
+        binding = true;
         nickname.Text = settings.Nickname;
         loginMode.SelectedIndex = settings.OfflineMode ? 0 : 1;
         nickname.Enabled = settings.OfflineMode;
@@ -64,12 +73,20 @@ internal sealed class SettingsPage : UserControl
         fullscreen.Checked = settings.Fullscreen;
         minimize.Checked = settings.MinimizeOnLaunch;
         sounds.Checked = settings.InterfaceSounds;
+        language.SelectedIndex = settings.Language == "ru" ? 1 : 0;
+        binding = false;
+    }
+    internal void RefreshLanguage()
+    {
+        loginMode.Items[0] = L.T("По никнейму");
+        loginMode.Invalidate();
+        L.RefreshTree(this);
     }
     public void ReadTo(Settings settings)
     {
         var offline = loginMode.SelectedIndex == 0;
         var name = offline ? OfflineAccount.Create(nickname.Text).Name : nickname.Text.Trim();
-        if (!int.TryParse(memory.Text, out var memoryMb) || memoryMb is < 1024 or > 32768) throw new InvalidOperationException("Введите память от 1024 до 32768 МБ");
+        if (!int.TryParse(memory.Text, out var memoryMb) || memoryMb is < 1024 or > 32768) throw new InvalidOperationException(L.T("Введите память от 1024 до 32768 МБ"));
         settings.MemoryMb = memoryMb;
         if (resolution.SelectedItem is string text)
         {
@@ -82,6 +99,7 @@ internal sealed class SettingsPage : UserControl
         settings.InterfaceSounds = sounds.Checked;
         settings.Nickname = name;
         settings.OfflineMode = offline;
+        settings.Language = language.SelectedIndex == 1 ? "ru" : "en";
     }
 }
 
@@ -91,7 +109,7 @@ internal sealed class PixelSlider : Control
     public event Action<int>? Changed;
     public PixelSlider()
     {
-        DoubleBuffered = true; Cursor = Cursors.Hand; TabStop = true; AccessibleName = "Выделенная память";
+        DoubleBuffered = true; Cursor = Cursors.Hand; TabStop = true; AccessibleName = L.T("Выделенная память");
         MouseDown += (_, e) => { Capture = true; MoveTo(e.X); Focus(); };
         MouseMove += (_, e) => { if (Capture) MoveTo(e.X); };
         MouseUp += (_, _) => Capture = false;

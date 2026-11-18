@@ -1,5 +1,5 @@
 param(
-    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '0.2.0',
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '0.3.0',
     [string]$IsccPath,
     [switch]$SkipPublish
 )
@@ -37,6 +37,7 @@ $eclipsePeOffset = [BitConverter]::ToInt32($eclipseBytes, 0x3c)
 if ([BitConverter]::ToUInt16($eclipseBytes, $eclipsePeOffset + 4) -ne 0x14c) { throw 'Expected x86 launcher' }
 if (Test-Path -LiteralPath (Join-Path $eclipsePublish 'data')) { throw 'Game data must never be included in a release' }
 Copy-Item -LiteralPath (Join-Path $eclipseWorkspace 'README.md') -Destination $eclipsePublish -Force
+if (Test-Path -LiteralPath (Join-Path $eclipseWorkspace 'README.ru.md')) { Copy-Item -LiteralPath (Join-Path $eclipseWorkspace 'README.ru.md') -Destination $eclipsePublish -Force }
 $eclipseNotices = Join-Path $eclipsePublish 'Notices'
 New-Item -ItemType Directory -Path $eclipseNotices -Force | Out-Null
 $eclipsePackages = if ($env:NUGET_PACKAGES) { $env:NUGET_PACKAGES } else { Join-Path $env:DOTNET_CLI_HOME '.nuget\packages' }
