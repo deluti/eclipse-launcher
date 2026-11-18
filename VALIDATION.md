@@ -10,7 +10,10 @@ The installer defaults to English and offers Russian, including translated upgra
 
 The primary README, API setup guide, repository description and executable description are English. Russian documents remain available as `README.ru.md` and `MINECRAFT-API-REQUEST.ru.md`. The installer includes both README languages. `PREVIEW/launcher-en.png` shows the English interface with fixture data.
 
+Release [v0.3.0](https://github.com/deluti/eclipse-launcher/releases/tag/v0.3.0) is published as the third stable version. [GitHub Actions](https://github.com/deluti/eclipse-launcher/actions/runs/44275504244) passed testing, packaging and publishing. The real updater detected 0.3.0 from a 0.2.0 baseline and downloaded the public installer without authentication. Its SHA-256 matches GitHub and `SHA256SUMS.txt`: `fbdfe5ac572579496e9e519d279cb94c1d2a9c13fd7e17665bc73af5f9e43b8e` (34,394,318 bytes). The downloaded CI installer passed the full 0.2.0 → 0.3.0 manual/automatic upgrade and data-preservation checks, including restart with a custom data directory and unchanged user installation registration/shortcut. Installed first paint: 471.1 ms. The updated framework-dependent workspace build painted in 306.1 ms.
+
 ## Часы и обновления — 0.2.0
+
 
 Счётчик суммирует время жизни процесса Minecraft во всех профилях, использует монотонный таймер, сохраняет `data/playtime.json` каждые 30 секунд и при завершении процесса. До успешного `Process.Start` время не учитывается. Плашка с пиксельными часами и одним десятичным знаком рисуется на фоне панели запуска: кнопка «Играть» закрывает её верхние 12 px. Регрессионная UI-проверка сравнивает нижние 12 строк кнопки с отдельным изображением кнопки: счётчик не может перекрывать её рамку.
 
