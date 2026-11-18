@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace Eclipse;
@@ -16,6 +17,7 @@ internal sealed class MainForm : Form
     private readonly LauncherConfig? configurationOverride;
     internal TabCarousel Navigation { get; } = new();
     internal bool Ready { get; private set; }
+    internal PlaytimeBadge HoursBadge => playtimeBadge;
     private readonly Panel pages = new() { Dock = DockStyle.Fill, Padding = new Padding(20, 0, 20, 0) };
     private readonly Panel home = new() { Dock = DockStyle.Fill };
     private readonly SkinScene scene = new() { Dock = DockStyle.Fill };
@@ -24,6 +26,13 @@ internal sealed class MainForm : Form
     private readonly PixelButton login = new() { Text = "Войти", Width = 165, Quiet = true, AccessibleName = "Войти через Microsoft" };
     private readonly PixelButton logout = new() { Text = "Выйти", Width = 100, Quiet = true, Visible = false };
     private readonly PixelButton play = new() { Text = "ИГРАТЬ", Width = 360, Height = 64, Primary = true, Font = PixelTheme.Font(24), AccessibleName = "Играть" };
+    private readonly PlaytimeBadge playtimeBadge = new();
+    private readonly System.Windows.Forms.Timer playtimeTimer = new() { Interval = 1000 };
+    private readonly PixelButton update = new() { Text = "Обновить", Width = 142, Primary = true, Visible = false, Font = PixelTheme.Font(14), AccessibleName = "Обновить лаунчер" };
+    private readonly LauncherUpdates? updatesOverride;
+    private LauncherUpdates? updates;
+    private LauncherRelease? availableUpdate;
+    private bool closingForUpdate;
     private readonly PixelButton cancel = new() { Text = "Отмена", Width = 110, Dock = DockStyle.Right, Quiet = true, Visible = false };
     private readonly Label status = new() { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true, Cursor = Cursors.Hand };
     private readonly ToolTip tip = new() { AutoPopDelay = 12000 };
@@ -49,22 +58,24 @@ internal sealed class MainForm : Form
     [DllImport("user32.dll")] private static extern bool ReleaseCapture();
     [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam);
 
-    public MainForm(AppPaths paths, bool smoke, LauncherConfig? configurationOverride = null)
+    public MainForm(AppPaths paths, bool smoke, LauncherConfig? configurationOverride = null, LauncherUpdates? updatesOverride = null)
     {
-        this.paths = paths; this.smoke = smoke; this.configurationOverride = configurationOverride;
+        this.paths = paths; this.smoke = smoke; this.configurationOverride = configurationOverride; this.updatesOverride = updatesOverride;
         Text = "Eclipse — Minecraft Java"; Font = PixelTheme.Font(); ForeColor = PixelTheme.Text; BackColor = PixelTheme.Background;
         using (var icon = typeof(MainForm).Assembly.GetManifestResourceStream("Eclipse.Assets.Eclipse.ico")!) Icon = new Icon(icon);
         FormBorderStyle = FormBorderStyle.None; ClientSize = new Size(1280, 850); MinimumSize = new Size(1040, 720);
         StartPosition = FormStartPosition.CenterScreen; DoubleBuffered = true; KeyPreview = true;
         Padding = new Padding(1);
         pages.BackColor = home.BackColor = PixelTheme.Background;
-        var launchBar = new Panel { Dock = DockStyle.Bottom, Height = 139, BackColor = PixelTheme.Background };
+        var launchBar = new Panel { Dock = DockStyle.Bottom, Height = 173, BackColor = PixelTheme.Background };
         launchBar.Controls.Add(play); launchBar.Controls.Add(versions); launchBar.Controls.Add(installVersion);
+        play.BringToFront();
         void LayoutLaunch()
         {
             play.Location = new Point((launchBar.Width - play.Width) / 2, 8);
-            versions.Location = new Point((launchBar.Width - versions.Width - installVersion.Width - 8) / 2, 86);
-            installVersion.Location = new Point(versions.Right + 8, 86);
+            playtimeBadge.Bounds = new Rectangle((launchBar.Width - 190) / 2, play.Bottom - 12, 190, 48);
+            versions.Location = new Point((launchBar.Width - versions.Width - installVersion.Width - 8) / 2, 119);
+            installVersion.Location = new Point(versions.Right + 8, 119);
         }
         launchBar.Resize += (_, _) => LayoutLaunch(); LayoutLaunch();
         home.Controls.Add(scene); home.Controls.Add(launchBar); pages.Controls.Add(home);
@@ -76,10 +87,10 @@ internal sealed class MainForm : Form
         var close = new PixelButton { Text = "×", Width = 46, Dock = DockStyle.Right, Quiet = true, AccessibleName = "Закрыть" };
         var maximize = new PixelButton { Text = "□", Width = 46, Dock = DockStyle.Right, Quiet = true, AccessibleName = "Развернуть" };
         var minimize = new PixelButton { Text = "_", Width = 46, Dock = DockStyle.Right, Quiet = true, AccessibleName = "Свернуть" };
-        login.Dock = logout.Dock = DockStyle.Right;
-        foreach (var button in new[] { login, logout, minimize, maximize, close }) button.BackColor = PixelTheme.Header;
+        login.Dock = logout.Dock = update.Dock = DockStyle.Right;
+        foreach (var button in new[] { login, logout, update, minimize, maximize, close }) button.BackColor = PixelTheme.Header;
         cancel.BackColor = PixelTheme.Background;
-        chrome.Controls.Add(brand); chrome.Controls.Add(logout); chrome.Controls.Add(login); chrome.Controls.Add(minimize); chrome.Controls.Add(maximize); chrome.Controls.Add(close);
+        chrome.Controls.Add(brand); chrome.Controls.Add(update); chrome.Controls.Add(logout); chrome.Controls.Add(login); chrome.Controls.Add(minimize); chrome.Controls.Add(maximize); chrome.Controls.Add(close);
         void Drag(object? sender, MouseEventArgs e) { if (e.Button == MouseButtons.Left) { ReleaseCapture(); SendMessage(Handle, 0xA1, (IntPtr)2, IntPtr.Zero); } }
         chrome.MouseDown += Drag; brand.MouseDown += Drag;
         chrome.DoubleClick += (_, _) => ToggleMaximize();
@@ -99,7 +110,12 @@ internal sealed class MainForm : Form
             PaintBackdrop(e.Graphics, pages, e.ClipRectangle);
             PaintAtmosphere(e.Graphics, pages, e.ClipRectangle, includeParticles: false);
         };
-        launchBar.Paint += (_, e) => PaintBackdrop(e.Graphics, launchBar, e.ClipRectangle);
+        launchBar.Paint += (_, e) =>
+        {
+            PaintBackdrop(e.Graphics, launchBar, e.ClipRectangle);
+            // Paint the plaque on the parent, so the native Play button always covers it.
+            playtimeBadge.Draw(e.Graphics);
+        };
         footer.Paint += (_, e) => PaintBackdrop(e.Graphics, footer, e.ClipRectangle);
         Resize += (_, _) => { launchBar.Invalidate(); footer.Invalidate(); pages.Invalidate(); };
         status.BackColor = Color.Transparent;
@@ -121,6 +137,8 @@ internal sealed class MainForm : Form
             SetStatus("Вы вышли из аккаунта");
         };
         play.Click += async (_, _) => await RunAsync(PlayAsync);
+        update.Click += async (_, _) => await RunAsync(UpdateLauncherAsync);
+        playtimeTimer.Tick += (_, _) => RefreshPlaytime();
         installVersion.Click += async (_, _) => await InstallVersionAsync();
         versions.SelectedIndexChanged += (_, _) => ChangeVersion();
         cancel.Click += (_, _) => operation?.Cancel();
@@ -138,10 +156,10 @@ internal sealed class MainForm : Form
         FormClosing += (_, e) =>
         {
             if (running) { e.Cancel = true; WindowState = FormWindowState.Minimized; return; }
-            if (files != null && !files.ConfirmLeave()) { e.Cancel = true; return; }
+            if (!closingForUpdate && files != null && !files.ConfirmLeave()) { e.Cancel = true; return; }
             operation?.Cancel(); lifetime.Cancel();
         };
-        FormClosed += (_, _) => { http?.Dispose(); tip.Dispose(); backdrop.Dispose(); };
+        FormClosed += (_, _) => { playtimeTimer.Dispose(); http?.Dispose(); tip.Dispose(); backdrop.Dispose(); };
     }
     private void ToggleMaximize()
     {
@@ -166,6 +184,7 @@ internal sealed class MainForm : Form
         var input = FindFocused(this);
         if (input is TextBoxBase or ComboBox { DroppedDown: true } or NumericUpDown || input?.Parent is NumericUpDown)
             return base.ProcessCmdKey(ref msg, keyData);
+        if (input == update && keyData is Keys.Space or Keys.Enter) { if (update.Enabled) update.PerformClick(); return true; }
         if (keyData == Keys.Space && Navigation.ActiveTab == LauncherTab.Eclipse && input is not PixelComboBox && input != installVersion && !versions.DroppedDown)
         {
             if (play.Enabled) play.PerformClick();
@@ -269,6 +288,9 @@ internal sealed class MainForm : Form
             }, lifetime.Token);
             UiSounds.Enabled = settings.InterfaceSounds;
             http = Network.Create(); auth = new Authentication(http, paths, config.MicrosoftClientId); minecraft = new Minecraft(http, paths); appearance = new AppearanceService(http, paths);
+            updates = updatesOverride ?? new LauncherUpdates(http);
+            RefreshPlaytime(); playtimeTimer.Start();
+            _ = CheckUpdatesAsync();
             var name = settings.OfflineMode ? null : await Task.Run(() => auth.SavedName, lifetime.Token);
             RefreshIdentity(name);
             options?.Bind(settings);
@@ -329,8 +351,45 @@ internal sealed class MainForm : Form
         var exitCode = await Task.Run(() => offline != null
             ? minecraft!.LaunchOfflineAsync(plan, offline, settings.MemoryMb, progress, ct, settings)
             : minecraft!.LaunchAsync(plan, account!, settings.MemoryMb, progress, ct, settings), ct);
+        RefreshPlaytime();
         if (exitCode == 0) SetStatus("Minecraft закрыт");
         else { SetStatus($"Minecraft завершился с кодом {exitCode}"); errorDetails = "Журнал: " + paths.FilePath("logs/game-latest.log"); }
+    }
+    private void RefreshPlaytime()
+    {
+        if (playtimeBadge.SetHours(minecraft?.Playtime.TotalHours ?? 0)) play.Parent?.Invalidate(playtimeBadge.Bounds);
+        if (play.Parent != null) play.Parent.AccessibleDescription = playtimeBadge.AccessibleName;
+    }
+    private async Task CheckUpdatesAsync()
+    {
+        try
+        {
+            var release = await updates!.CheckAsync(lifetime.Token);
+            if (IsDisposed || lifetime.IsCancellationRequested || release == null) return;
+            availableUpdate = release;
+            update.Visible = true; update.Enabled = Ready && operation == null;
+            tip.SetToolTip(update, "Eclipse " + release.Version.ToString(3));
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or System.Text.Json.JsonException or OperationCanceledException or InvalidOperationException or ArgumentException)
+        { Debug.WriteLine("Update check: " + ex.Message); }
+    }
+    private async Task UpdateLauncherAsync(CancellationToken ct)
+    {
+        if (updates == null || availableUpdate == null) return;
+        try
+        {
+            SetStatus("Загрузка обновления Eclipse…");
+            var progress = new Progress<int>(percent => { if (!IsDisposed) update.Text = percent + "%"; });
+            var directory = paths.FilePath("updates/" + availableUpdate.Version.ToString(3) + "-" + Guid.NewGuid().ToString("N"));
+            var installer = await updates.DownloadAsync(availableUpdate, directory, progress, ct);
+            ct.ThrowIfCancellationRequested();
+            if (files != null && !files.ConfirmLeave()) return;
+            var info = LauncherUpdates.InstallerStartInfo(installer, AppContext.BaseDirectory, paths.Root, Environment.ProcessId);
+            using var process = Process.Start(info) ?? throw new InvalidOperationException("Не удалось запустить обновление.");
+            closingForUpdate = true;
+            Close();
+        }
+        finally { closingForUpdate = false; if (!IsDisposed) update.Text = "Обновить"; }
     }
     private void RefreshIdentity(string? savedName = null)
     {
@@ -424,6 +483,7 @@ internal sealed class MainForm : Form
     private void SetBusy(bool busy)
     {
         installVersion.Enabled = !busy;
+        update.Enabled = !busy && availableUpdate != null;
         login.Enabled = logout.Enabled = play.Enabled = versions.Enabled = !busy;
         play.Text = busy ? "ПОДГОТОВКА…" : "ИГРАТЬ";
         cancel.Visible = busy && operation != null && !running;

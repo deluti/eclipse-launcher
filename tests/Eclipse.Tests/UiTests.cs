@@ -29,14 +29,18 @@ internal static class UiTests
                 }
                 JsonStore.Write(paths.FilePath("versions.json"), new { latest = new { release = "26.3" }, versions = new[] { new { id = "26.3", type = "release" }, new { id = "1.21.1", type = "release" } } });
                 JsonStore.Write(paths.FilePath("profiles.json"), new[] { new ModdedProfile("fabric-loader-1.2.3-26.3", "26.3", "fabric", "1.2.3") });
+                JsonStore.Write(paths.FilePath("playtime.json"), new { TotalSeconds = 4444.4 });
                 Directory.CreateDirectory(screenshotDirectory);
-                using var form = new MainForm(paths, false, new LauncherConfig());
+                using var updateHandler = new UpdateHandler();
+                using var updateHttp = new HttpClient(updateHandler);
+                using var form = new MainForm(paths, false, new LauncherConfig(), new LauncherUpdates(updateHttp));
                 form.Shown += async (_, _) =>
                 {
                     try
                     {
                         for (var i = 0; !form.Ready && i < 200; i++) await Task.Delay(25);
                         Check(form.Ready, "Window initialization");
+                        await CheckUpdateAndHoursAsync(form, updateHandler);
                         await CheckAnimationAsync(form, screenshotDirectory);
                         await CheckRotationAsync(form, screenshotDirectory);
                         CheckSoundFeedback();
@@ -177,6 +181,7 @@ internal static class UiTests
                                     var model = Find<SkinScene>(page).Single();
                                     CheckUnclipped(play); CheckUnclipped(Find<PixelComboBox>(page).Single());
                                     Check(model.RectangleToScreen(model.ClientRectangle).Bottom <= play.RectangleToScreen(play.ClientRectangle).Top, "Character scene and Play do not overlap");
+                                    CheckLaunchBadge(form);
                                 }
                                 Capture(form, screenshotDirectory, $"{tab.ToString().ToLowerInvariant()}-{size.Width}");
                                 await CheckBusyControlsAsync(form, screenshotDirectory, $"busy-{tab.ToString().ToLowerInvariant()}-{size.Width}");
@@ -227,6 +232,41 @@ internal static class UiTests
         Check(bodyParticles > 0, "Particles continue into the main scene toward Steve's head");
     }
     private static bool IsAmbientGreen(Color color) => color.G >= 27 && color.G > color.R * 1.3f && color.G > color.B * 1.45f;
+    private sealed class UpdateHandler : HttpMessageHandler
+    {
+        internal readonly TaskCompletionSource<HttpResponseMessage> Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => Pending.Task.WaitAsync(ct);
+    }
+    private static async Task CheckUpdateAndHoursAsync(MainForm form, UpdateHandler handler)
+    {
+        var update = Find<PixelButton>(form).Single(b => b.AccessibleName == "Обновить лаунчер");
+        Check(!update.Visible && Find<PixelButton>(form).Single(b => b.AccessibleName == "Играть").Enabled, "A slow update server cannot delay Ready or Play");
+        handler.Pending.SetResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(LauncherFeatureTests.Metadata("v99.0.0")) });
+        for (var i = 0; !update.Visible && i < 100; i++) await Task.Delay(10);
+        Check(update.Visible && update.Enabled && update.Primary, "A newer release shows one green update button");
+        var identity = Find<PixelButton>(form).Single(b => b.AccessibleName == "Настройки никнейма");
+        Check(update.Parent == identity.Parent && update.Right <= identity.Left, "Update sits to the left of nickname");
+        Check(form.HoursBadge.AccessibleName.Contains("1,2 ч"), "Saved hours use one Russian decimal");
+        CheckLaunchBadge(form);
+        Console.WriteLine("PASS updates/hours: asynchronous startup check, green header button, saved hours and overlapping Play badge");
+    }
+    private static void CheckLaunchBadge(MainForm form)
+    {
+        var play = Find<PixelButton>(form).Single(b => b.AccessibleName == "Играть");
+        var badge = form.HoursBadge;
+        var version = Find<PixelComboBox>(play.Parent!).Single();
+        Check(Rectangle.Intersect(play.Bounds, badge.Bounds).Height == 12, "Play slightly overlaps the hour plaque");
+        Check(badge.Bounds.Bottom < version.Top && badge.Bounds.Left + badge.Bounds.Width / 2 == play.Left + play.Width / 2, "Hour plaque is centered and clears version selection");
+        Check(play.Parent!.ClientRectangle.Contains(badge.Bounds), "The hour plaque stays inside the launch panel");
+        using var expected = new Bitmap(play.Width, play.Height);
+        using var frame = new Bitmap(form.Width, form.Height);
+        play.DrawToBitmap(expected, play.ClientRectangle);
+        form.DrawToBitmap(frame, form.ClientRectangle);
+        var origin = form.PointToClient(play.PointToScreen(Point.Empty));
+        for (var y = play.Height - 12; y < play.Height; y++)
+        for (var x = 0; x < play.Width; x++)
+            Check(expected.GetPixel(x, y).ToArgb() == frame.GetPixel(origin.X + x, origin.Y + y).ToArgb(), "Plaque must never cover Play's lower border");
+    }
     private static async Task CheckInstallerAsync(MainForm owner, string directory)
     {
         var paths = new AppPaths(Path.Combine(directory, "installer-fixture"));

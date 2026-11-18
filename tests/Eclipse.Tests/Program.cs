@@ -6,8 +6,33 @@ using System.Text;
 using System.Text.Json;
 using Eclipse;
 
+if (args.Contains("--eclipse-playtime-fixture")) { await Task.Delay(250); return 0; }
 var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../.test-data"));
 Directory.CreateDirectory(root);
+if (args is ["--download-launcher-update", var runningVersion, var updateDirectory])
+{
+    using var updateHttp = Network.Create();
+    var service = new LauncherUpdates(updateHttp);
+    var release = await service.CheckAsync(default, Version.Parse(runningVersion));
+    if (release == null) { Console.WriteLine("No newer stable release"); return 1; }
+    var installer = await service.DownloadAsync(release, updateDirectory, new Progress<int>(), default);
+    Console.WriteLine(JsonSerializer.Serialize(new { version = release.Version.ToString(3), installer, release.Sha256 }));
+    return 0;
+}
+if (args is ["--start-launcher-update", var updateInstaller, var updateAppDirectory, var updateDataDirectory])
+{
+    var updateStart = LauncherUpdates.InstallerStartInfo(updateInstaller,
+        Path.TrimEndingDirectorySeparator(updateAppDirectory) + Path.DirectorySeparatorChar,
+        Path.TrimEndingDirectorySeparator(updateDataDirectory) + Path.DirectorySeparatorChar, Environment.ProcessId);
+    updateStart.ArgumentList.Add("/ECLIPSETESTINSTALL=1");
+    updateStart.ArgumentList.Add("/NOICONS");
+    updateStart.ArgumentList.Add("/TASKS=");
+    updateStart.ArgumentList.Add("/LOG=" + Path.Combine(updateAppDirectory, "automatic-update.log"));
+    using var setup = Process.Start(updateStart);
+    if (setup == null) return 1;
+    Console.WriteLine("Installer PID " + setup.Id);
+    return 0;
+}
 if (args is ["--ui", var screenshotDirectory]) return UiTests.Run(root, screenshotDirectory);
 if (args is ["--offline-launch-check", var gameDataDirectory, var launchCheckDirectory])
     return await OfflineLaunchDiagnostics.RunAsync(gameDataDirectory, launchCheckDirectory);
@@ -77,6 +102,7 @@ if (args is ["--prepare-only", var version, var dataDirectory])
     return process.ExitCode;
 }
 
+if (args.Length != 0) { Console.Error.WriteLine("Unknown test arguments"); return 2; }
 var passed = 0;
 async Task Test(string name, Func<Task> test)
 {
@@ -689,6 +715,13 @@ await Test("Idle stays smooth and grounded across both poses and slim arms", () 
     return Task.CompletedTask;
 });
 await Test("Cape hangs vertically and clears every skin part throughout both idle poses", CapeTests.HangingWithoutClipping);
+await Test("Playtime accumulates only active monotonic sessions, checkpoints and restores", () => LauncherFeatureTests.PlaytimeAsync(root));
+await Test("Actual game process records playtime; a failed launch records none", LauncherFeatureTests.ActualProcessAsync);
+await Test("GitHub update check accepts only newer stable releases without account credentials", LauncherFeatureTests.ReleasesAsync);
+await Test("Updates reject foreign repositories, invalid hashes and oversized assets", LauncherFeatureTests.UntrustedAsync);
+await Test("GitHub releases without a digest use the published SHA256SUMS file", LauncherFeatureTests.LegacyChecksumAsync);
+await Test("Update download verifies SHA-256 and rejects corruption, truncation and cancellation", () => LauncherFeatureTests.DownloadsAsync(root));
+await Test("One-click installer arguments preserve app and custom data directories", () => LauncherFeatureTests.InstallerArgumentsAsync(root));
 Console.WriteLine($"{passed} tests passed.");
 return 0;
 

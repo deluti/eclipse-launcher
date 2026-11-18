@@ -29,7 +29,7 @@ public static class Network
             ConnectTimeout = TimeSpan.FromSeconds(15),
             AutomaticDecompression = DecompressionMethods.All
         }) { Timeout = TimeSpan.FromMinutes(5) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("EclipseLauncher/0.1");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("EclipseLauncher/" + LauncherUpdates.CurrentVersion.ToString(3));
         return client;
     }
 

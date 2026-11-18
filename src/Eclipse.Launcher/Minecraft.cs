@@ -26,6 +26,7 @@ public sealed class InstallPlan
 
 public sealed class Minecraft(HttpClient http, AppPaths paths)
 {
+    internal PlaytimeCounter Playtime { get; } = new(paths);
     public const string ManifestUrl = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
     private const string RuntimeUrl = "https://piston-meta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
 
@@ -249,6 +250,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
         await using var log = new StreamWriter(paths.FilePath("logs/game-latest.log"), false, new UTF8Encoding(false)) { AutoFlush = true };
         progress.Report("Запуск Minecraft…");
         using var process = Process.Start(info) ?? throw new InvalidOperationException("Не удалось запустить Java.");
+        using var played = Playtime.BeginSession();
         progress.Report("Minecraft запущен. PID " + process.Id);
         using var gate = new SemaphoreSlim(1);
         async Task Pump(StreamReader reader)
@@ -282,7 +284,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
         Directory.CreateDirectory(gameDirectory);
         var variables = new Dictionary<string, string>
         {
-            ["natives_directory"] = nativeDir, ["launcher_name"] = "Eclipse", ["launcher_version"] = "0.1",
+            ["natives_directory"] = nativeDir, ["launcher_name"] = "Eclipse", ["launcher_version"] = LauncherUpdates.CurrentVersion.ToString(3),
             ["classpath"] = string.Join(Path.PathSeparator, plan.ClassPath.Select(p => AppPaths.SafeChild(paths.Root, p))),
             ["classpath_separator"] = Path.PathSeparator.ToString(), ["library_directory"] = Path.Combine(paths.SharedGame, "libraries"),
             ["auth_player_name"] = account.Name, ["version_name"] = plan.Version, ["game_directory"] = gameDirectory,
