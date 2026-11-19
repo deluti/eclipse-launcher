@@ -49,6 +49,7 @@ public sealed class Settings
     public string Language { get; set; } = "en";
     public string Version { get; set; } = "";
     public int MemoryMb { get; set; } = 4096;
+    public bool AutomaticMemory { get; set; }
     public int WindowWidth { get; set; } = 1280;
     public int WindowHeight { get; set; } = 720;
     public bool Fullscreen { get; set; }

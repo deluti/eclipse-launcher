@@ -4,6 +4,10 @@ internal sealed class SettingsPage : UserControl
 {
     private readonly TextBox memory = new() { BorderStyle = BorderStyle.None, TextAlign = HorizontalAlignment.Center, AutoSize = false, Width = 104, Height = 28 };
     private readonly PixelSlider slider = new();
+    private readonly CheckBox automatic = new() { Text = L.T("Авто"), AutoSize = true, FlatStyle = FlatStyle.Flat, AccessibleName = L.T("Автоматическая память") };
+    private int manualMemory = 4096;
+    private int javaMajor = 21;
+    private readonly AppPaths? paths;
     private readonly TextBox nickname = new() { BorderStyle = BorderStyle.None, AutoSize = false, MaxLength = 16, AccessibleName = L.T("Никнейм") };
     private readonly PixelComboBox loginMode = new() { Width = 338, AccessibleName = L.T("Способ входа") };
     private readonly PixelComboBox resolution = new() { Width = 230 };
@@ -15,8 +19,9 @@ internal sealed class SettingsPage : UserControl
     private readonly CheckBox sounds = new() { Text = L.T("Звуки интерфейса"), AutoSize = true, FlatStyle = FlatStyle.Flat };
     public event Action? SaveRequested;
     public event Action? RefreshVersionsRequested;
-    public SettingsPage()
+    public SettingsPage(AppPaths? paths = null)
     {
+        this.paths = paths;
         BackColor = PixelTheme.Background;
         var panel = new Panel { Width = 680, Height = 450, BackColor = PixelTheme.Background, Anchor = AnchorStyles.Top };
         var title = PixelTheme.TextLabel(L.T("НАСТРОЙКИ ЗАПУСКА"), 22); title.Location = new Point(0, 12);
@@ -27,12 +32,23 @@ internal sealed class SettingsPage : UserControl
         loginMode.SelectedIndexChanged += (_, _) => nickname.Enabled = loginMode.SelectedIndex == 0;
         nickname.KeyPress += (_, _) => UiSounds.Play(UiCue.Tick);
         var memoryTitle = PixelTheme.TextLabel(L.T("ПАМЯТЬ MINECRAFT"), 14); memoryTitle.Location = new Point(0, 126);
+        PixelTheme.Style(automatic); automatic.Location = new Point(318, 121);
         PixelTheme.Style(memory); memory.Location = new Point(494, 118); memory.AccessibleName = L.T("Память Minecraft, МБ");
         var less = new PixelButton { Text = "-", Bounds = new Rectangle(456, 116, 32, 32) };
         var more = new PixelButton { Text = "+", Bounds = new Rectangle(604, 116, 32, 32) };
         void Step(int delta) { var current = int.TryParse(memory.Text, out var parsed) ? parsed : 4096; memory.Text = Math.Clamp(current + delta, 1024, 32768).ToString(); }
         less.Click += (_, _) => Step(-512); more.Click += (_, _) => Step(512);
         var units = PixelTheme.TextLabel(L.T("МБ"), 12); units.Location = new Point(642, 128);
+        automatic.CheckedChanged += (_, _) =>
+        {
+            if (!binding)
+            {
+                if (automatic.Checked && int.TryParse(memory.Text, out var amount)) manualMemory = amount;
+                memory.Text = (automatic.Checked ? RecommendedMemory() : manualMemory).ToString();
+                UiSounds.Play(UiCue.Select);
+            }
+            memory.Enabled = slider.Enabled = less.Enabled = more.Enabled = !automatic.Checked;
+        };
         slider.Bounds = new Rectangle(0, 162, 678, 30);
         var low = PixelTheme.TextLabel(L.T("1 ГБ"), 12); low.ForeColor = PixelTheme.Muted; low.Location = new Point(0, 198);
         var high = PixelTheme.TextLabel(L.T("32 ГБ"), 12); high.ForeColor = PixelTheme.Muted; high.Location = new Point(628, 198);
@@ -51,11 +67,28 @@ internal sealed class SettingsPage : UserControl
         language.SelectedIndexChanged += (_, _) => { if (!binding) LanguageChanged?.Invoke(language.SelectedIndex == 1 ? "ru" : "en"); };
         var save = new PixelButton { Text = L.T("Сохранить"), Primary = true, Bounds = new Rectangle(0, 406, 250, 42) };
         var refresh = new PixelButton { Text = L.T("Обновить версии"), Bounds = new Rectangle(290, 406, 270, 42) };
+        var graphics = new PixelButton { Text = "GPU", AccessibleName = L.T("Проверка GPU"), Bounds = new Rectangle(580, 406, 100, 42) };
+        graphics.Click += async (_, _) =>
+        {
+            graphics.Enabled = false;
+            try
+            {
+                var saved = paths == null ? null : JsonStore.Read<Settings>(paths.FilePath("settings.json"));
+                var plan = saved == null || string.IsNullOrEmpty(saved.Version) ? null : JsonStore.Read<InstallPlan>(AppPaths.SafeChild(paths!.Root, "plans/" + saved.Version + ".json"));
+                var java = plan == null ? null : AppPaths.SafeChild(paths!.Root, plan.JavaRelativePath);
+                var report = await Task.Run(() => WindowsGraphics.Read(java));
+                if (IsDisposed) return;
+                var lines = report.Adapters.Select(a => a.Name + " · " + a.DedicatedBytes / 1048576 + " MB");
+                PixelDialog.Message(this, "GPU", string.Join("\n", lines) + "\n\n" + L.T("Выбор GPU: ") + report.JavaPreference + "\n" + java + "\n\n" + L.T("В Windows → Система → Дисплей → Графика можно выбрать GPU для этого javaw.exe. Системные настройки не изменялись."));
+            }
+            catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException or ArgumentException) { if (!IsDisposed) PixelDialog.Message(this, "GPU", ex.Message); }
+            finally { if (!IsDisposed) graphics.Enabled = true; }
+        };
         save.Click += (_, _) => SaveRequested?.Invoke();
         refresh.Click += (_, _) => RefreshVersionsRequested?.Invoke();
         slider.Changed += value => memory.Text = value.ToString();
         memory.TextChanged += (_, _) => { if (int.TryParse(memory.Text, out var parsed)) slider.SetValue(parsed); };
-        panel.Controls.AddRange([title, nicknameTitle, nickname, modeTitle, loginMode, memoryTitle, memory, less, more, units, slider, low, high, sizeTitle, resolution, fullscreen, minimize, sounds, languageTitle, language, save, refresh]);
+        panel.Controls.AddRange([title, nicknameTitle, nickname, modeTitle, loginMode, memoryTitle, automatic, memory, less, more, units, slider, low, high, sizeTitle, resolution, fullscreen, minimize, sounds, languageTitle, language, save, refresh, graphics]);
         Controls.Add(panel);
         Resize += (_, _) => panel.Location = new Point(Math.Max(24, (Width - panel.Width) / 2), Math.Max(6, (Height - panel.Height) / 3));
         L.CaptureTree(this);
@@ -63,10 +96,19 @@ internal sealed class SettingsPage : UserControl
     public void Bind(Settings settings)
     {
         binding = true;
+        try
+        {
+            if (paths != null && !string.IsNullOrEmpty(settings.Version) && JsonStore.Read<InstallPlan>(AppPaths.SafeChild(paths.Root, "plans/" + settings.Version + ".json")) is { } plan)
+                javaMajor = JavaRuntimeInfo.RequiredMajor(plan);
+        }
+        catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException) { }
         nickname.Text = settings.Nickname;
         loginMode.SelectedIndex = settings.OfflineMode ? 0 : 1;
         nickname.Enabled = settings.OfflineMode;
         memory.Text = Math.Clamp(settings.MemoryMb, 1024, 32768).ToString();
+        manualMemory = Math.Clamp(settings.MemoryMb, 1024, 32768);
+        automatic.Checked = settings.AutomaticMemory;
+        if (automatic.Checked) memory.Text = RecommendedMemory().ToString();
         var text = $"{settings.WindowWidth} × {settings.WindowHeight}";
         if (!resolution.Items.Contains(text)) resolution.Items.Add(text);
         resolution.SelectedItem = text;
@@ -87,7 +129,8 @@ internal sealed class SettingsPage : UserControl
         var offline = loginMode.SelectedIndex == 0;
         var name = offline ? OfflineAccount.Create(nickname.Text).Name : nickname.Text.Trim();
         if (!int.TryParse(memory.Text, out var memoryMb) || memoryMb is < 1024 or > 32768) throw new InvalidOperationException(L.T("Введите память от 1024 до 32768 МБ"));
-        settings.MemoryMb = memoryMb;
+        settings.MemoryMb = automatic.Checked ? manualMemory : memoryMb;
+        settings.AutomaticMemory = automatic.Checked;
         if (resolution.SelectedItem is string text)
         {
             var parts = text.Split('×');
@@ -100,6 +143,11 @@ internal sealed class SettingsPage : UserControl
         settings.Nickname = name;
         settings.OfflineMode = offline;
         settings.Language = language.SelectedIndex == 1 ? "ru" : "en";
+    }
+    private int RecommendedMemory()
+    {
+        var mods = paths == null ? 0 : MemoryBudget.CountMods(paths.Game);
+        return MemoryBudget.Calculate(MemoryStatus.Read(), true, manualMemory, javaMajor, mods).MaximumMb;
     }
 }
 

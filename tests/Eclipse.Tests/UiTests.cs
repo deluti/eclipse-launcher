@@ -46,6 +46,8 @@ internal static class UiTests
                         await CheckUpdateAndHoursAsync(form, updateHandler);
                         await CheckLanguageSwitchAsync(form, paths, language);
                         await CheckAnimationAsync(form, screenshotDirectory);
+                        await CheckGameQuietAsync(form);
+                        CheckAutomaticMemory();
                         await CheckRotationAsync(form, screenshotDirectory);
                         CheckSoundFeedback();
                         CheckSpaceLaunch(form);
@@ -227,6 +229,31 @@ internal static class UiTests
         Check(Find<TextBox>(dialog).Single().MaxLength == 64, "Profile names are editable");
         foreach (var button in Find<PixelButton>(dialog)) Check(dialog.ClientRectangle.Contains(button.Bounds), "Profile actions fit in both languages");
         Capture(dialog, screenshots, "profile-dialog"); dialog.Close();
+    }
+    private static async Task CheckGameQuietAsync(MainForm form)
+    {
+        var activity = typeof(MainForm).GetMethod("SetGameActivity", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        activity.Invoke(form, [true]);
+        var frames = form.Navigation.PaintCount; await Task.Delay(120);
+        Check(!form.Navigation.AnimationRunning && form.Navigation.PaintCount - frames <= 1, "Game-time launcher is static even while visible");
+        form.WindowState = FormWindowState.Minimized; form.WindowState = FormWindowState.Normal;
+        await Task.Delay(80); Check(!form.Navigation.AnimationRunning, "Restoring a window does not restart game-time animation");
+        activity.Invoke(form, [false]); await Task.Delay(80);
+        Check(form.Navigation.AnimationRunning && form.Navigation.PaintCount > frames, "Animations resume after game exit");
+        Console.WriteLine("PASS resources: visible/minimized game-time animation stops and resumes after exit");
+    }
+    private static void CheckAutomaticMemory()
+    {
+        var settings = new Settings { MemoryMb = 6144, AutomaticMemory = true };
+        using var page = new SettingsPage(); page.Bind(settings);
+        var automatic = Find<CheckBox>(page).Single(c => c.AccessibleName == L.T("Автоматическая память"));
+        var memory = Find<TextBox>(page).Single(c => c.AccessibleName == L.T("Память Minecraft, МБ"));
+        Check(automatic.Checked && !memory.Enabled, "Automatic memory disables manual controls");
+        automatic.Checked = false; Check(memory.Text == "6144" && memory.Enabled, "Manual allocation is restored");
+        memory.Text = "7168"; automatic.Checked = true; page.ReadTo(settings);
+        Check(settings.MemoryMb == 7168 && settings.AutomaticMemory, "Saving Auto retains the edited manual value");
+        automatic.Checked = false; Check(memory.Text == "7168", "Switching back restores the last manual input");
+        Console.WriteLine("PASS memory UI: automatic mode preserves manual values and updates controls");
     }
     private static void CheckEffectPlacement(MainForm form)
     {

@@ -27,6 +27,8 @@ English is the default, including when upgrading older settings. Choose **Englis
 - **Screenshots** gallery with recent images and a full-size viewer.
 - **Files** tree with text editing and quick access to the active profile's mods folder.
 - **Settings** for language, nickname, sign-in method, memory, window size, fullscreen, launcher minimization and interface sounds.
+- **Automatic memory budget** based on available physical/commit memory, Java and the installed mod count. Existing manual allocations remain manual; the saved manual value survives switching modes. GPU inspection is read-only.
+- **Quiet game-time mode** stops animation and its worker thread even if the launcher stays visible, cancels background cosmetic/update requests, releases render/preparation caches and stops the sound worker. Animation resumes when the game exits.
 - **Playtime counter** below PLAY. It tracks the running game, not launcher idle time or downloads, and saves every 30 seconds and when the game closes.
 - **One-click updates**: startup checks the latest stable GitHub release in the background. A green **Update** button appears to the left of your nickname when a newer version is available. The installer is verified by size and SHA-256 before execution.
 - Pixel UI with an embedded **Monocraft** font, English and Russian text, green particles and quiet action sounds. The animation loop targets **120 FPS**, including mouse rotation; actual performance depends on the computer and display.
@@ -43,7 +45,7 @@ Microsoft sign-in and appearance changes require a registered application Client
 
 Skins and capes are loaded from the authenticated profile. Only owned capes can be equipped. The API does not provide the official launcher's complete skin history; Eclipse also remembers skins previously seen for that player.
 
-Imported PNGs stay in `data/appearance/local-skins`, with their model and local selection in `data/appearance/library.json`. In **Microsoft** mode, Apply uploads the selected PNG through the official authenticated Minecraft API. In **Local nickname** mode, Apply saves the selection for the preview and game; **Default** restores Steve. On the first game launch with a custom local skin, Eclipse downloads the unmodified [authlib-injector 1.2.8](https://github.com/yushijinhun/authlib-injector/releases/tag/v1.2.8) agent and verifies its pinned SHA-256. It serves the selected texture from a temporary loopback endpoint while the game runs. Microsoft launches do not load the agent. A local skin is visible in your client; other players need compatible server/client skin support to see it.
+Imported PNGs stay in `data/appearance/local-skins`, with their model and local selection in `data/appearance/library.json`. In **Microsoft** mode, Apply uploads the selected PNG through the official authenticated Minecraft API. In **Local nickname** mode, Apply saves the launcher preview; **Default** restores Steve. Starting with **0.5.0**, Eclipse does not inject skin code into the game, download skin helpers, or run a texture server. Previously saved skins remain available. Local custom skins therefore affect only the launcher preview; the game uses its own default skin behavior.
 
 Profile copies use stable IDs in `data/instances`. Shared assets, libraries and Java are reused. Renaming changes only the displayed name, preserving paths and worlds. Copying worlds is disabled by default; the original profile remains available.
 
@@ -93,7 +95,7 @@ The development build in `artifacts/Eclipse` is framework-dependent and requires
 Install [Inno Setup 6 or 7](https://jrsoftware.org/isinfo.php), then run:
 
 ```powershell
-.\tools\Build-WindowsRelease.ps1 -Version 0.4.0
+.\tools\Build-WindowsRelease.ps1 -Version 0.5.0
 ```
 
 The script downloads official .NET 10.0.15 runtime packs from NuGet.org, publishes `win-x86` with ReadyToRun, includes runtime/font notices, and produces:
@@ -106,6 +108,8 @@ Use `-IsccPath` to select the Inno Setup compiler. Game files and personal sessi
 The integration script `tools/Test-WindowsUpgrade.ps1` verifies upgrades in isolated copies with a separate installer registration and no test shortcuts. Existing user installation metadata and its Start menu shortcut are checked for changes.
 
 ## Performance and credits
+
+See [performance architecture, measurements and limitations](PERFORMANCE.md). Local measurements are saved in `data/diagnostics/startup.json` and `launch.json`; they contain technical timing/resource data and are never uploaded. The launcher keeps official HotSpot GC defaults and does not change mods, Minecraft graphics/options/resource packs, Windows power/security settings, GPU preferences or process priority. Compatible official Java is chosen from each Minecraft version's metadata and checked locally without a `java -version` subprocess on every launch.
 
 Eclipse paints its first window before network requests or session decryption. Cached launch plans avoid repeated metadata requests. Downloads run in parallel and reuse verified unchanged files. Java launches directly with a JVM argument file and the selected memory limit. Game and mod initialization time is determined by Minecraft, Java and the computer.
 

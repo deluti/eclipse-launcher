@@ -35,6 +35,12 @@ internal sealed class SkinScene : Control
     private Rectangle modelBounds;
     internal bool FrameDriven;
     private Bitmap? characterBuffer, outlineBuffer;
+    internal void ReleaseRenderCache()
+    {
+        model?.Dispose(); model = null; modelDirty = true;
+        characterBuffer?.Dispose(); characterBuffer = null; outlineBuffer?.Dispose(); outlineBuffer = null;
+        characterPixels = []; outlinePixels = [];
+    }
     private byte[] characterPixels = [], outlinePixels = [];
     private static readonly Point[][] OutlineOffsets = Enumerable.Range(0, 6).Select(radius =>
         (from dy in Enumerable.Range(-radius, radius * 2 + 1)

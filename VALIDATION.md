@@ -1,4 +1,14 @@
-# Проверено 19 ноября 2026
+# Проверено 20 ноября 2026
+
+## Performance and local launch policy — 0.5.0
+
+See [PERFORMANCE.md](PERFORMANCE.md) for the architecture, native API references, reproducible harness and raw before/after measurements. Warm preparation median changed from 78.9 to 16.3 ms; after releasing game-time caches, 84.2 to 57.1 ms. Six unchanged checks now rewrite the receipt index zero times instead of six. Visible game-time launcher rendering stops completely; measured CPU was 323 ms/s before and 0–12 ms/s in repeated new runs. Private memory in the paired sample fell from 93.6 to 49.4 MiB. First-window times remain in the same range; the sample does not demonstrate a faster first window or a Minecraft FPS increase.
+
+Official Java selection remains metadata-driven and propagates through Fabric, Quilt and named copies. Local preflight checks the major version and x64 PE machine type without a helper process. Automatic RAM reads system-wide physical/commit counters with GetPerformanceInfo, including from the x86 launcher. Existing manual values and edits survive Auto switching. GPU enumeration and per-Java preference inspection are read-only; no Windows settings are changed. Agent loading, local texture serving and helper downloads have been removed. Existing skin PNGs/previews and Microsoft uploads are retained.
+
+71 tests cover memory limits, backwards settings compatibility, changed/deleted cache inputs, receipt write avoidance, Java version/architecture rejection, prohibited flags, unchanged mod/config/resource-pack bytes, actual child-process exit, one-shot resource/GPU diagnostics and exact raw background pixel hashes against 0.4.0. Full English/Russian UI checks passed. Final x86 rotation recheck measured 120.1 new poses/s and 120.1 header FPS; one earlier run measured 99.6 poses/s and failed the unchanged 105 FPS threshold. That drop did not reproduce in the next isolated run; no test threshold was weakened. Game-time rendering stop/resume and manual-memory restoration are checked explicitly.
+
+Real Vanilla 26.3, Fabric 0.20.1 and Quilt 0.30.2 reached GUI textures with no agents or injected test mods, using isolated game directories. The 0.4.0 → 0.5.0 upgrade integration test passed manual installation, automatic restart with a custom data directory, preservation of worlds/mods/settings/profiles/hours/skins, uninstall data retention and unchanged real user installation/shortcut. Publication validation is recorded after the GitHub build.
 
 ## Skin library and named profile copies — 0.4.0
 

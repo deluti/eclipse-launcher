@@ -16,6 +16,7 @@ internal sealed class SkinsPage : UserControl
     private AppearanceProfile? currentProfile;
     private bool offlineMode;
     private string playerName = "";
+    private object? displayedKey;
     public event Func<Task>? ReloadRequested;
     internal void Animate(double elapsed) => scene.Animate(Rectangle.Empty, elapsed);
     public event Func<PlayerTexture?, PlayerTexture?, Task>? ApplyRequested;
@@ -53,6 +54,9 @@ internal sealed class SkinsPage : UserControl
     }
     public async Task SetProfileAsync(AppearanceProfile? profile, AppearanceService service, bool offline = false, string nickname = "", PlayerTexture? focusSkin = null)
     {
+        var key = (profile, service, offline, nickname, service.Library.Revision, L.Language);
+        if (focusSkin == null && Equals(displayedKey, key)) return;
+        displayedKey = null;
         this.service = service;
         currentProfile = profile; offlineMode = offline; playerName = nickname;
         var current = ++generation;
@@ -102,6 +106,7 @@ internal sealed class SkinsPage : UserControl
                 capes.Controls.Add(tile);
             }
             await UpdatePreviewAsync(current);
+            if (current == generation && !IsDisposed && focusSkin == null) displayedKey = key;
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) when (ex is IOException or HttpRequestException or ArgumentException) { report(L.T("Не удалось загрузить текстуру: ") + ex.Message); }

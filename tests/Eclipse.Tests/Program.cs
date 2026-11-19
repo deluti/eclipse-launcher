@@ -7,12 +7,9 @@ using System.Text.Json;
 using Eclipse;
 
 if (args.Contains("--eclipse-playtime-fixture")) { await Task.Delay(250); return 0; }
-if (args is ["--real-skin-check", var realGameRoot, var realSkinCheckRoot, var realSkinAgent])
-    return await LocalSkinDiagnostics.RunAsync(realGameRoot, realSkinCheckRoot, realSkinAgent);
-if (args is ["--skin-game-check", var skinGameRoot, var skinGameCheckRoot, var skinGameVersion, var gameSkinAgent])
-    return await OfflineLaunchDiagnostics.RunAsync(skinGameRoot, skinGameCheckRoot, skinGameVersion, gameSkinAgent);
-if (args is ["--skin-runtime-check", var runtimeCheckRoot, var skinAgent])
-{ await SkinProfileTests.RuntimeAsync(runtimeCheckRoot, skinAgent); Console.WriteLine("PASS signed local texture API and pinned agent"); return 0; }
+if (args.Contains("--eclipse-playtime-fixture-long")) { await Task.Delay(3500); return 0; }
+if (args is ["--benchmark", var benchmarkRoot, var benchmarkResult])
+    return await PerformanceDiagnostics.RunAsync(benchmarkRoot, benchmarkResult);
 var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../.test-data"));
 Directory.CreateDirectory(root);
 if (args is ["--download-launcher-update", var runningVersion, var updateDirectory])
@@ -737,8 +734,11 @@ await Test("Errors and hour formatting use the selected language", LocalizationT
 await Test("Imported PNG skins persist, deduplicate, validate and load without HTTP", () => SkinProfileTests.LibraryAsync(root));
 await Test("Microsoft skin changes upload the saved PNG as authenticated multipart data", () => SkinProfileTests.UploadAsync(root));
 await Test("Copied profiles isolate mods and worlds; renaming preserves paths", () => SkinProfileTests.CopiesAsync(root));
-if (File.Exists(Path.Combine(root, "skin-agent", "agent.jar")))
-    await Test("Local skin session serves signed textures and implements no authentication", () => SkinProfileTests.RuntimeAsync(root, Path.Combine(root, "skin-agent", "agent.jar")));
+await Test("Automatic memory respects physical/commit availability and preserves manual settings", () => OptimizationTests.MemoryAsync(root));
+await Test("Warm receipts are not rewritten; changed files and plans invalidate caches", () => OptimizationTests.ReceiptsAsync(root));
+await Test("Local Java preflight rejects incompatible versions, x86 executables and injection flags", () => OptimizationTests.JavaAsync(root));
+await Test("Production local launch uses no skin agent, server or helper and records exit metrics", () => OptimizationTests.NoInjectionAsync(root));
+await Test("Optimized background retains the exact original pixels at both window sizes", OptimizationTests.BackdropAsync);
 Console.WriteLine($"{passed} tests passed.");
 return 0;
 

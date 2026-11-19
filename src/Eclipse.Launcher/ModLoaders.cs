@@ -86,7 +86,7 @@ public sealed class ModLoaders(HttpClient http, AppPaths paths, Minecraft minecr
         var plan = new InstallPlan
         {
             Version = profileId, BaseVersion = gameVersion, GameRelativeDirectory = "instances/" + profileId,
-            JavaRelativePath = basis.JavaRelativePath, AssetIndex = basis.AssetIndex, MainClass = mainClass,
+            JavaRelativePath = basis.JavaRelativePath, JavaMajorVersion = basis.JavaMajorVersion, AssetIndex = basis.AssetIndex, MainClass = mainClass,
             NativeJars = [.. basis.NativeJars], NativeFiles = [.. basis.NativeFiles], Files = [.. basis.Files],
             JvmArguments = [.. basis.JvmArguments], GameArguments = [.. basis.GameArguments]
         };

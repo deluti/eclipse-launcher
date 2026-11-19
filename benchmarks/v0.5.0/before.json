@@ -1,0 +1,53 @@
+{
+  "version": "0.4.0",
+  "preparationMs": [
+    206.2898,
+    73.4076,
+    77.9404,
+    81.8169,
+    78.8982,
+    132.549
+  ],
+  "afterGamePreparationMs": [
+    97.2656,
+    77.5588,
+    88.5501,
+    79.9096
+  ],
+  "receiptWrites": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+  ],
+  "ui": {
+    "firstPaintMs": 297.417,
+    "readyMs": 363.9053,
+    "idle": {
+      "cpuMsPerSecond": 635.3530150914031,
+      "framesPerSecond": 119.99444756589469,
+      "workingSetBytes": 144871424,
+      "privateBytes": 98422784,
+      "managedBytes": 56411760,
+      "threads": 28
+    },
+    "gameVisible": {
+      "cpuMsPerSecond": 323.16208672739697,
+      "framesPerSecond": 120.11682833185289,
+      "workingSetBytes": 144584704,
+      "privateBytes": 98131968,
+      "managedBytes": 57100864,
+      "threads": 28
+    },
+    "gameMinimized": {
+      "cpuMsPerSecond": 6.228947651884068,
+      "framesPerSecond": 0,
+      "workingSetBytes": 138158080,
+      "privateBytes": 92098560,
+      "managedBytes": 57117312,
+      "threads": 28
+    }
+  }
+}

@@ -20,6 +20,7 @@ internal sealed class SkinLibrary(AppPaths paths)
         public List<LocalSkin> Skins { get; set; } = [];
     }
     private string IndexFile => paths.FilePath("appearance/library.json");
+    internal (long Size, long Modified) Revision { get { var file = new FileInfo(IndexFile); return file.Exists ? (file.Length, file.LastWriteTimeUtc.Ticks) : (0, 0); } }
     private Index Read() => JsonStore.Read<Index>(IndexFile) ?? new();
     internal IReadOnlyList<LocalSkin> All() => Read().Skins;
     internal LocalSkin? Selected() { var index = Read(); return index.Skins.FirstOrDefault(s => s.Id == index.SelectedId); }

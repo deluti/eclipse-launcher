@@ -33,24 +33,23 @@ internal sealed class LauncherBackdrop : IDisposable
         var data = image.LockBits(bounds, ImageLockMode.WriteOnly, PixelFormat.Format32bppPArgb);
         try
         {
-            var pixels = new byte[data.Stride * size.Height];
+            var stride = data.Stride / 4;
+            var pixels = new int[stride * size.Height];
+            var blue = PixelTheme.Background.B; var green = PixelTheme.Background.G; var red = PixelTheme.Background.R;
             const int grain = 3;
             for (var y = 0; y < size.Height; y += grain)
-            for (var x = 0; x < size.Width; x += grain)
             {
-                var hash = unchecked((uint)((x / grain + 19) * 73856093 ^ (y / grain + 37) * 19349663));
-                hash ^= hash >> 16; hash = unchecked(hash * 0x7feb352d);
-                hash ^= hash >> 15; hash = unchecked(hash * 0x846ca68b); hash ^= hash >> 16;
-                var shade = (int)(hash % 5) - 2;
-                for (var py = y; py < Math.Min(y + grain, size.Height); py++)
-                for (var px = x; px < Math.Min(x + grain, size.Width); px++)
+                var row = y * stride;
+                for (var x = 0; x < size.Width; x += grain)
                 {
-                    var index = py * data.Stride + px * 4;
-                    pixels[index] = (byte)(PixelTheme.Background.B + shade);
-                    pixels[index + 1] = (byte)(PixelTheme.Background.G + shade);
-                    pixels[index + 2] = (byte)(PixelTheme.Background.R + shade);
-                    pixels[index + 3] = 255;
+                    var hash = unchecked((uint)((x / grain + 19) * 73856093 ^ (y / grain + 37) * 19349663));
+                    hash ^= hash >> 16; hash = unchecked(hash * 0x7feb352d);
+                    hash ^= hash >> 15; hash = unchecked(hash * 0x846ca68b); hash ^= hash >> 16;
+                    var shade = (int)(hash % 5) - 2;
+                    var argb = unchecked((int)0xff000000) | (red + shade) << 16 | (green + shade) << 8 | (blue + shade);
+                    pixels.AsSpan(row + x, Math.Min(grain, size.Width - x)).Fill(argb);
                 }
+                for (var py = y + 1; py < Math.Min(y + grain, size.Height); py++) Array.Copy(pixels, row, pixels, py * stride, size.Width);
             }
             Marshal.Copy(pixels, 0, data.Scan0, pixels.Length);
         }

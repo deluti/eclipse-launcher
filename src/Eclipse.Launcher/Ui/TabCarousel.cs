@@ -12,6 +12,13 @@ internal sealed class TabCarousel : Control
     internal const int DarkHeaderEnd = 130;
     private readonly HeaderParticles particles = new();
     private AnimationClock? clock;
+    private bool suspended;
+    internal void SuspendAnimation(bool value)
+    {
+        suspended = value;
+        if (value) { clock?.Dispose(); clock = null; ClearComposition(); backdrop?.Dispose(); backdrop = null; }
+        UpdateActivity();
+    }
     private Form? host;
     private bool moving;
     private float position = 2;
@@ -87,7 +94,6 @@ internal sealed class TabCarousel : Control
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        clock ??= new AnimationClock(this, OnFrame);
         AttachHost(); UpdateActivity();
     }
     protected override void OnHandleDestroyed(EventArgs e) { clock?.SetActive(false); base.OnHandleDestroyed(e); }
@@ -102,7 +108,12 @@ internal sealed class TabCarousel : Control
         if (host != null) { host.Resize += HostChanged; host.VisibleChanged += HostChanged; }
     }
     private void HostChanged(object? sender, EventArgs e) => UpdateActivity();
-    private void UpdateActivity() => clock?.SetActive(IsHandleCreated && !IsDisposed && Visible && host?.Visible == true && host.WindowState != FormWindowState.Minimized);
+    private void UpdateActivity()
+    {
+        var active = !suspended && IsHandleCreated && !IsDisposed && Visible && host?.Visible == true && host.WindowState != FormWindowState.Minimized;
+        if (active) clock ??= new AnimationClock(this, OnFrame);
+        clock?.SetActive(active);
+    }
     private void OnFrame(double elapsed)
     {
         if (!Visible || host?.WindowState == FormWindowState.Minimized) { UpdateActivity(); return; }

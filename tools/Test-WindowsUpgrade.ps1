@@ -2,13 +2,13 @@ param(
     [string]$SetupPath,
     [string]$LegacyDirectory,
     [string]$TestHostPath,
-    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$ExpectedVersion = '0.4.0',
-    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$LegacyVersion = '0.3.0'
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$ExpectedVersion = '0.5.0',
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$LegacyVersion = '0.4.0'
 )
 $ErrorActionPreference = 'Stop'
 $eclipseWorkspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (-not $SetupPath) { $SetupPath = Join-Path $eclipseWorkspace 'artifacts\release\eclipse-launcher-windows-x86.exe' }
-if (-not $LegacyDirectory) { $LegacyDirectory = Join-Path $eclipseWorkspace '.test-data\legacy-0.3-runtime' }
+if (-not $LegacyDirectory) { $LegacyDirectory = Join-Path $eclipseWorkspace '.test-data\legacy-0.4-runtime' }
 if (-not $TestHostPath) { $TestHostPath = Join-Path $eclipseWorkspace 'tests\Eclipse.Tests\bin\Release\net10.0-windows\Eclipse.Tests.exe' }
 $eclipseTestRoot = Join-Path $eclipseWorkspace ('.test-data\upgrade-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $eclipseTestRoot -Force | Out-Null

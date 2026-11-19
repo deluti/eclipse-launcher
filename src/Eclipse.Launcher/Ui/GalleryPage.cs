@@ -11,6 +11,7 @@ internal sealed class GalleryPage : UserControl
     private readonly CancellationTokenSource lifetime = new();
     private readonly Action<string> report;
     private bool loading;
+    private string[]? displayedFiles;
     public GalleryPage(AppPaths paths, Action<string> report)
     {
         this.report = report;
@@ -20,7 +21,7 @@ internal sealed class GalleryPage : UserControl
         var title = PixelTheme.TextLabel(L.T("ПОСЛЕДНИЕ СКРИНШОТЫ"), 16); title.Location = new Point(24, 19);
         var refresh = new PixelButton { Text = L.T("Обновить"), Width = 140, Dock = DockStyle.Right };
         var folder = new PixelButton { Text = L.T("Папка"), Width = 110, Dock = DockStyle.Right };
-        refresh.Click += async (_, _) => await ReloadAsync();
+        refresh.Click += async (_, _) => await ReloadAsync(true);
         folder.Click += (_, _) => { Directory.CreateDirectory(directory); Process.Start(new ProcessStartInfo(directory) { UseShellExecute = true }); };
         bar.Controls.Add(title); bar.Controls.Add(folder); bar.Controls.Add(refresh);
         empty.ForeColor = PixelTheme.Muted;
@@ -29,14 +30,17 @@ internal sealed class GalleryPage : UserControl
         Resize += (_, _) => empty.Location = new Point((Width - empty.Width) / 2, Height / 2);
         empty.BringToFront();
     }
-    public async Task ReloadAsync()
+    public async Task ReloadAsync(bool force = false)
     {
         if (loading || IsDisposed) return;
         loading = true;
         try
         {
-            var files = await Task.Run(() => Directory.Exists(directory)
-                ? new DirectoryInfo(directory).EnumerateFiles("*.png").OrderByDescending(f => f.LastWriteTimeUtc).Take(120).Select(f => f.FullName).ToArray() : [], lifetime.Token);
+            var entries = await Task.Run(() => Directory.Exists(directory)
+                ? new DirectoryInfo(directory).EnumerateFiles("*.png").OrderByDescending(f => f.LastWriteTimeUtc).Take(120).Select(f => (f.FullName, Stamp: f.Length + ":" + f.LastWriteTimeUtc.Ticks)).ToArray() : [], lifetime.Token);
+            var signature = entries.Select(f => f.FullName + "|" + f.Stamp).ToArray();
+            if (!force && displayedFiles != null && displayedFiles.SequenceEqual(signature)) return;
+            var files = entries.Select(f => f.FullName).ToArray();
             foreach (Control item in grid.Controls.Cast<Control>().ToArray()) item.Dispose();
             grid.Controls.Clear();
             empty.Visible = files.Length == 0;
@@ -50,6 +54,7 @@ internal sealed class GalleryPage : UserControl
                 tile.Click += (_, _) => { using var viewer = new ScreenshotViewer(files, index); viewer.ShowDialog(FindForm()); };
                 grid.Controls.Add(tile);
             }
+            displayedFiles = signature;
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { report(ex.Message); }

@@ -12,6 +12,10 @@ public sealed class Downloads
     private readonly HttpClient http;
     private readonly AppPaths paths;
     private readonly ConcurrentDictionary<string, FileReceipt> receipts;
+    private readonly ConcurrentDictionary<DownloadFile, string> targets = new();
+    private int dirty;
+    private readonly object saveGate = new();
+    internal long HashedFiles, DownloadedFiles, ReceiptWrites;
     public Downloads(HttpClient http, AppPaths paths)
     {
         this.http = http;
@@ -23,7 +27,15 @@ public sealed class Downloads
     }
 
     private string ReceiptPath => paths.FilePath("verified-files.json");
-    public void SaveReceipts() => JsonStore.Write(ReceiptPath, receipts);
+    public void SaveReceipts()
+    {
+        lock (saveGate)
+        {
+            if (Interlocked.Exchange(ref dirty, 0) == 0) return;
+            try { JsonStore.Write(ReceiptPath, receipts); Interlocked.Increment(ref ReceiptWrites); }
+            catch { Interlocked.Exchange(ref dirty, 1); throw; }
+        }
+    }
 
     public async Task EnsureAllAsync(IEnumerable<DownloadFile> files, IProgress<string> progress, CancellationToken ct)
     {
@@ -47,16 +59,17 @@ public sealed class Downloads
 
     public async Task EnsureAsync(DownloadFile file, CancellationToken ct)
     {
-        Validate(file);
-        var target = AppPaths.SafeChild(paths.Root, file.RelativePath);
-        if (File.Exists(target))
+        ct.ThrowIfCancellationRequested();
+        var target = targets.GetOrAdd(file, item => { Validate(item); return AppPaths.SafeChild(paths.Root, item.RelativePath); });
+        var info = new FileInfo(target);
+        if (info.Exists)
         {
-            var info = new FileInfo(target);
             if (info.Length == file.Size)
             {
                 if (receipts.TryGetValue(file.RelativePath, out var receipt)
                     && receipt.Sha1.Equals(file.Sha1, StringComparison.OrdinalIgnoreCase)
                     && receipt.Size == info.Length && receipt.Modified == info.LastWriteTimeUtc.Ticks) return;
+                Interlocked.Increment(ref HashedFiles);
                 if (await MatchesAsync(target, file.Sha1, ct).ConfigureAwait(false)) { Remember(file, target); return; }
             }
         }
@@ -75,6 +88,7 @@ public sealed class Downloads
                     throw new InvalidDataException(L.T("Контрольная сумма загрузки не совпала: ") + Path.GetFileName(target));
                 File.Move(temporary, target, true);
                 Remember(file, target);
+                Interlocked.Increment(ref DownloadedFiles);
                 return;
             }
             catch (Exception ex) when (attempt < 2 && (ex is HttpRequestException or IOException))
@@ -95,7 +109,10 @@ public sealed class Downloads
     private void Remember(DownloadFile file, string target)
     {
         var info = new FileInfo(target);
-        receipts[file.RelativePath] = new(file.Sha1, info.Length, info.LastWriteTimeUtc.Ticks);
+        var receipt = new FileReceipt(file.Sha1, info.Length, info.LastWriteTimeUtc.Ticks);
+        if (receipts.TryGetValue(file.RelativePath, out var previous) && previous == receipt) return;
+        receipts[file.RelativePath] = receipt;
+        Interlocked.Exchange(ref dirty, 1);
     }
     private static async Task<bool> MatchesAsync(string path, string sha1, CancellationToken ct)
     {

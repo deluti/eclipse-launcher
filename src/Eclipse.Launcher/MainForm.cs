@@ -28,7 +28,6 @@ internal sealed class MainForm : Form
     private readonly PixelButton logout = new() { Text = L.T("Выйти"), Width = 100, Quiet = true, Visible = false };
     private readonly PixelButton play = new() { Text = L.T("ИГРАТЬ"), Width = 360, Height = 64, Primary = true, Font = PixelTheme.Font(24), AccessibleName = L.T("Играть") };
     private readonly PlaytimeBadge playtimeBadge = new();
-    private readonly System.Windows.Forms.Timer playtimeTimer = new() { Interval = 1000 };
     private readonly PixelButton update = new() { Text = L.T("Обновить"), Width = 142, Primary = true, Visible = false, Font = PixelTheme.Font(14), AccessibleName = L.T("Обновить лаунчер") };
     private readonly LauncherUpdates? updatesOverride;
     private LauncherUpdates? updates;
@@ -49,10 +48,14 @@ internal sealed class MainForm : Form
     private Settings settings = new();
     private CancellationTokenSource? operation;
     private readonly CancellationTokenSource lifetime = new();
+    private CancellationTokenSource background = new();
+    private double firstPaintMs;
     private IProgress<string>? currentProgress;
     private string? errorDetails;
     private volatile bool running;
     private int appearanceGeneration;
+    private string displayedAppearance = "local:default";
+    private string? pendingLocalAppearance;
     private bool bindingVersions;
     private string selectedVersion = "";
 
@@ -134,13 +137,12 @@ internal sealed class MainForm : Form
         };
         logout.Click += (_, _) =>
         {
-            auth?.SignOut(); profile = null; login.Text = L.T("Войти"); logout.Visible = false; scene.SetAppearance(null, false, null);
+            auth?.SignOut(); profile = null; login.Text = L.T("Войти"); logout.Visible = false; scene.SetAppearance(null, false, null); displayedAppearance = "local:default";
             if (skins != null && appearance != null) _ = skins.SetProfileAsync(null, appearance);
             SetStatus(L.T("Вы вышли из аккаунта"));
         };
         play.Click += async (_, _) => await RunAsync(PlayAsync);
         update.Click += async (_, _) => await RunAsync(UpdateLauncherAsync);
-        playtimeTimer.Tick += (_, _) => RefreshPlaytime();
         installVersion.Click += async (_, _) => await InstallVersionAsync();
         profileActions.Click += async (_, _) => await EditProfileAsync();
         versions.SelectedIndexChanged += (_, _) => ChangeVersion();
@@ -149,6 +151,7 @@ internal sealed class MainForm : Form
         Shown += async (_, _) =>
         {
             Refresh();
+            firstPaintMs = Program.Startup.Elapsed.TotalMilliseconds;
             if (smoke)
             {
                 JsonStore.Write(paths.FilePath("startup.json"), new { firstPaintMs = Program.Startup.Elapsed.TotalMilliseconds, processId = Environment.ProcessId, workingSetBytes = Environment.WorkingSet });
@@ -162,7 +165,7 @@ internal sealed class MainForm : Form
             if (!closingForUpdate && files != null && !files.ConfirmLeave()) { e.Cancel = true; return; }
             operation?.Cancel(); lifetime.Cancel();
         };
-        FormClosed += (_, _) => { playtimeTimer.Dispose(); http?.Dispose(); tip.Dispose(); backdrop.Dispose(); };
+        FormClosed += (_, _) => { background.Cancel(); background.Dispose(); http?.Dispose(); tip.Dispose(); backdrop.Dispose(); lifetime.Dispose(); };
         L.CaptureTree(this);
     }
     private void ToggleMaximize()
@@ -254,7 +257,7 @@ internal sealed class MainForm : Form
                                 if (skin != null && local == null) throw new InvalidOperationException(L.T("Скин отсутствует в библиотеке."));
                                 appearance.Library.Select(local);
                                 await LoadLocalAppearanceAsync(); await RefreshSkinsAsync();
-                                SetStatus(L.T("Внешний вид сохранён")); return;
+                                SetStatus(L.T("Скин превью сохранён")); return;
                             }
                             var account = await AuthenticateAsync(false, ct);
                             var updated = await appearance!.ApplyAsync(account, skin, cape, ct);
@@ -265,7 +268,7 @@ internal sealed class MainForm : Form
                 case LauncherTab.Settings:
                     if (options == null)
                     {
-                        options = new SettingsPage(); options.Bind(settings);
+                        options = new SettingsPage(paths); options.Bind(settings);
                         options.LanguageChanged += language =>
                         {
                             try
@@ -310,7 +313,7 @@ internal sealed class MainForm : Form
         {
             var config = await Task.Run(() =>
             {
-                settings = JsonStore.Read<Settings>(paths.FilePath("settings.json")) ?? new();
+                settings = JsonStore.Read<Settings>(paths.FilePath("settings.json")) ?? new() { AutomaticMemory = true };
                 return configurationOverride ?? JsonStore.Read<LauncherConfig>(Path.Combine(AppContext.BaseDirectory, "launcher-config.json")) ?? new();
             }, lifetime.Token);
             UiSounds.Enabled = settings.InterfaceSounds;
@@ -324,6 +327,7 @@ internal sealed class MainForm : Form
                     {
                         if (IsDisposed) return;
                         cancel.Visible = false;
+                        SetGameActivity(true);
                         if (settings.MinimizeOnLaunch) WindowState = FormWindowState.Minimized;
                     }));
                 }
@@ -331,7 +335,7 @@ internal sealed class MainForm : Form
             };
             ApplyLanguage(settings.Language);
             updates = updatesOverride ?? new LauncherUpdates(http);
-            RefreshPlaytime(); playtimeTimer.Start();
+            RefreshPlaytime();
             _ = CheckUpdatesAsync();
             var name = settings.OfflineMode ? null : await Task.Run(() => auth.SavedName, lifetime.Token);
             RefreshIdentity(name);
@@ -342,6 +346,7 @@ internal sealed class MainForm : Form
             // Cosmetic downloads must never hold up the Play button.
             Ready = true;
             SetBusy(false);
+            PerformanceJournal.Startup(paths, firstPaintMs, Program.Startup.Elapsed.TotalMilliseconds);
             if (!settings.OfflineMode && !string.IsNullOrEmpty(name) && cached?.Name == name) await LoadAppearanceAsync(cached);
             if (skins != null) await RefreshSkinsAsync();
         }
@@ -356,12 +361,15 @@ internal sealed class MainForm : Form
         var generation = ++appearanceGeneration;
         var skin = updated.Skins.FirstOrDefault(s => s.Active);
         var cape = updated.Capes.FirstOrDefault(s => s.Active);
+        var key = "remote:" + updated.Uuid + ":" + skin?.Url + ":" + skin?.Variant + ":" + cape?.Url;
+        if (displayedAppearance == key) { if (skins != null) await RefreshSkinsAsync(); return; }
         try
         {
-            using var skinBitmap = skin == null ? null : await appearance.TextureAsync(skin, lifetime.Token);
-            using var capeBitmap = cape == null ? null : await appearance.TextureAsync(cape, lifetime.Token);
+            using var skinBitmap = skin == null ? null : await appearance.TextureAsync(skin, background.Token);
+            using var capeBitmap = cape == null ? null : await appearance.TextureAsync(cape, background.Token);
             if (IsDisposed || generation != appearanceGeneration) return;
             scene.SetAppearance(skinBitmap, skin?.Variant == "SLIM", capeBitmap);
+            displayedAppearance = key;
             if (skins != null) await RefreshSkinsAsync();
         }
         catch (OperationCanceledException) { }
@@ -377,16 +385,24 @@ internal sealed class MainForm : Form
     private async Task LoadLocalAppearanceAsync()
     {
         if (appearance == null) return;
+        var local = appearance.Library.Selected();
+        var key = "local:" + (local?.Id ?? "default");
+        if (displayedAppearance == key) { appearanceGeneration++; return; }
+        if (pendingLocalAppearance == key) return;
         var generation = ++appearanceGeneration;
+        pendingLocalAppearance = key;
         try
         {
-            var local = appearance.Library.Selected();
-            using var bitmap = local == null ? null : await Task.Run(() => appearance.Library.Load(local), lifetime.Token);
+            using var bitmap = local == null ? null : await Task.Run(() => appearance.Library.Load(local), background.Token);
             if (!IsDisposed && settings.OfflineMode && generation == appearanceGeneration)
+            {
                 scene.SetAppearance(bitmap, local?.Variant == "SLIM", null);
+                displayedAppearance = key;
+            }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) when (ex is IOException or ArgumentException) { if (!IsDisposed) ShowError(ex); }
+        finally { if (pendingLocalAppearance == key) pendingLocalAppearance = null; }
     }
     private async Task<LicensedAccount> AuthenticateAsync(bool interactive, CancellationToken ct)
     {
@@ -398,6 +414,7 @@ internal sealed class MainForm : Form
     }
     private async Task PlayAsync(CancellationToken ct)
     {
+        minecraft!.MarkLaunchRequested();
         var version = VersionId(versions.SelectedItem);
         if (string.IsNullOrEmpty(version)) throw new InvalidOperationException(L.T("Выберите версию Minecraft"));
         settings.Version = version; JsonStore.Write(paths.FilePath("settings.json"), settings);
@@ -435,7 +452,7 @@ internal sealed class MainForm : Form
     {
         try
         {
-            var release = await updates!.CheckAsync(lifetime.Token);
+            var release = await updates!.CheckAsync(background.Token);
             if (IsDisposed || lifetime.IsCancellationRequested || release == null) return;
             availableUpdate = release;
             update.Visible = true; update.Enabled = Ready && operation == null;
@@ -469,7 +486,6 @@ internal sealed class MainForm : Form
             login.Text = OfflineAccount.Create(settings.Nickname).Name;
             login.AccessibleName = L.T("Настройки никнейма");
             logout.Visible = false;
-            appearanceGeneration++;
             profile = null;
             if (appearance != null) _ = LoadLocalAppearanceAsync();
             if (skins != null && appearance != null) _ = RefreshSkinsAsync();
@@ -572,9 +588,42 @@ internal sealed class MainForm : Form
         catch (Exception ex) { if (!IsDisposed) ShowError(ex); }
         finally
         {
+            var wasRunning = running;
             running = false; operation = null; pending.Dispose();
+            if (wasRunning && !IsDisposed) SetGameActivity(false);
             if (!IsDisposed && !lifetime.IsCancellationRequested) { SetBusy(false); if (WindowState == FormWindowState.Minimized && settings.MinimizeOnLaunch) WindowState = FormWindowState.Normal; }
         }
+    }
+    private void SetGameActivity(bool active)
+    {
+        Navigation.SuspendAnimation(active);
+        if (active)
+        {
+            background.Cancel(); appearanceGeneration++;
+            minecraft?.ReleasePreparationCache(); scene.ReleaseRenderCache();
+            if (gallery != null && !gallery.Visible) { pages.Controls.Remove(gallery); gallery.Dispose(); gallery = null; }
+            if (skins != null && !skins.Visible) { pages.Controls.Remove(skins); skins.Dispose(); skins = null; }
+            UiSounds.Stop();
+            _ = ReclaimAfterLaunchAsync(lifetime.Token);
+        }
+        else
+        {
+            background.Dispose(); background = new CancellationTokenSource();
+            RefreshPlaytime();
+            if (settings.OfflineMode) _ = LoadLocalAppearanceAsync();
+            else if (profile != null) _ = LoadAppearanceAsync(profile);
+            if (settings.InterfaceSounds) UiSounds.Start();
+        }
+    }
+    private async Task ReclaimAfterLaunchAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(750, ct);
+            if (running && !IsDisposed && GC.GetTotalMemory(false) > 32 * 1024 * 1024)
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, blocking: false, compacting: false);
+        }
+        catch (OperationCanceledException) { }
     }
     private void SetBusy(bool busy)
     {

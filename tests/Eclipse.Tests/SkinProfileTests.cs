@@ -115,26 +115,4 @@ internal static class SkinProfileTests
         await Reject<OperationCanceledException>(() => manager.CopyAsync("26.3", "Cancelled", true, true, new InlineProgress(), new CancellationToken(true)));
         Check(ModdedProfile.ReadAll(paths).Count == before && !Directory.GetDirectories(paths.FilePath("instances"), ".creating-*").Any());
     }
-    internal static async Task RuntimeAsync(string root, string agent)
-    {
-        var paths = Paths(root); var library = new SkinLibrary(paths);
-        using var http = new HttpClient(new FakeHandler(_ => throw new Exception("Unexpected HTTP")));
-        Check(await LocalSkinRuntime.StartAsync(http, paths, OfflineAccount.Create("Fixture"), new InlineProgress(), default) == null);
-        var skin = library.Import(Fixture(paths), true); library.Select(skin);
-        Directory.CreateDirectory(paths.FilePath("support")); File.Copy(agent, paths.FilePath("support/authlib-injector-1.2.8.jar"));
-        await using var runtime = await LocalSkinRuntime.StartAsync(http, paths, OfflineAccount.Create("Fixture"), new InlineProgress(), default) ?? throw new Exception();
-        using var local = new HttpClient(new SocketsHttpHandler { UseProxy = false });
-        var metadata = JsonSerializer.Deserialize<JsonElement>(await local.GetStringAsync(runtime.Root));
-        using var key = RSA.Create(); key.ImportFromPem(metadata.GetProperty("signaturePublickey").GetString()!);
-        var profile = JsonSerializer.Deserialize<JsonElement>(await local.GetStringAsync(runtime.Root + "sessionserver/session/minecraft/profile/" + OfflineAccount.Create("Fixture").Uuid));
-        var property = profile.GetProperty("properties")[0]; var value = property.GetProperty("value").GetString()!;
-        Check(key.VerifyData(Encoding.UTF8.GetBytes(value), Convert.FromBase64String(property.GetProperty("signature").GetString()!), HashAlgorithmName.SHA1, RSASignaturePadding.Pkcs1));
-        var texture = JsonSerializer.Deserialize<JsonElement>(Convert.FromBase64String(value)).GetProperty("textures").GetProperty("SKIN");
-        Check(texture.GetProperty("metadata").GetProperty("model").GetString() == "slim");
-        var url = texture.GetProperty("url").GetString()!;
-        Check(url.EndsWith(Convert.ToHexString(SHA256.HashData(library.Bytes(skin))).ToLowerInvariant()));
-        Check((await local.GetByteArrayAsync(url)).SequenceEqual(library.Bytes(skin)) && runtime.TextureRequests == 1);
-        foreach (var path in new[] { "authserver/authenticate", "sessionserver/session/minecraft/join", "sessionserver/session/minecraft/hasJoined" })
-        { using var response = await local.GetAsync(runtime.Root + path); Check(response.StatusCode == HttpStatusCode.NotFound); }
-    }
 }

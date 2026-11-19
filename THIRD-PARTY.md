@@ -1,17 +1,10 @@
-# Optional skin support
+# Third-party components
 
-Local nickname launches with a selected custom skin download the unmodified
-[authlib-injector 1.2.8](https://github.com/yushijinhun/authlib-injector/releases/tag/v1.2.8)
-from its upstream release. It is not included in the installer and is not loaded
-for Microsoft launches or the default local skin.
+Eclipse embeds the Monocraft font under the SIL Open Font License. Its license
+is included in the repository and installer. Self-contained Windows packages
+include .NET runtime licenses and notices in the Notices directory.
 
-- Copyright: Haowei Wen (yushijinhun) and contributors.
-- [Source](https://github.com/yushijinhun/authlib-injector/tree/v1.2.8).
-- [License](https://github.com/yushijinhun/authlib-injector/blob/v1.2.8/LICENSE):
-  GNU Affero General Public License v3, with the AUTHLIB-INJECTOR exception
-  documented in the upstream README for unmodified agents, Java-agent usage and IPC.
-- SHA-256: `9c7f4343e6c82034958ffb48c14a2cb0c85928be7283103ce17da00c6d5a7b10`.
-
-Eclipse uses a temporary loopback texture provider; it implements no account
-authentication or multiplayer session-join endpoints. The provider and agent
-exit with the game. Minecraft and Java remain downloads from official servers.
+Minecraft and Java are downloaded from their official distribution servers.
+No skin agent, local texture server or optimization helper is bundled, downloaded
+or injected into the game in version 0.5.0. An agent downloaded by an older
+version is left on disk with the user's data and is never loaded by this version.

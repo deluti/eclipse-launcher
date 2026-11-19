@@ -205,5 +205,15 @@
   "Выберите PNG-скин размером 64×64 или 64×32.": "Choose a 64×64 or 64×32 PNG skin.",
   "Не удалось прочитать PNG-скин.": "Could not read the PNG skin.",
   "Подготовка локального скина…": "Preparing local skin…",
-  "Контрольная сумма поддержки скинов не совпала.": "The skin support checksum did not match."
+  "Контрольная сумма поддержки скинов не совпала.": "The skin support checksum did not match.",
+  "Авто": "Auto",
+  "Скин превью сохранён": "Preview skin saved",
+  "Автоматическая память": "Automatic memory",
+  "Проверка GPU": "GPU check",
+  "Выбор GPU: ": "GPU preference: ",
+  "В Windows → Система → Дисплей → Графика можно выбрать GPU для этого javaw.exe. Системные настройки не изменялись.": "Select this javaw.exe in Windows → System → Display → Graphics to choose a GPU. System settings were not changed.",
+  "Нужна Java {0}; установленная Java несовместима. Повторите подготовку версии.": "Java {0} is required; the installed Java is incompatible. Prepare the version again.",
+  "Повреждён исполняемый файл Java.": "The Java executable is damaged.",
+  "Для Minecraft нужна Java Windows x64.": "Minecraft requires Windows x64 Java.",
+  "Профиль содержит запрещённый агент или вложенный файл JVM.": "The profile contains a prohibited agent or nested JVM argument file."
 }
