@@ -27,8 +27,13 @@ jobs:
       - name: Build installer
         shell: pwsh
         run: |
-          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.5.0' }
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.5.1' }
           ./tools/Build-WindowsRelease.ps1 -Version $version
+      - name: Verify normal published startup
+        shell: pwsh
+        run: |
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.5.1' }
+          ./tools/Test-PublishedStartup.ps1 -ExpectedVersion $version
       - uses: actions/upload-artifact@v4
         with:
           name: eclipse-launcher-windows-x86

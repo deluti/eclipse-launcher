@@ -1,5 +1,5 @@
 param(
-    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '0.5.0',
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '0.5.1',
     [string]$IsccPath,
     [switch]$SkipPublish
 )
@@ -26,7 +26,7 @@ if (-not $SkipPublish) {
         if ($eclipseResolved -ne (Join-Path $eclipseWorkspace 'artifacts\release\win-x86')) { throw 'Unsafe publish directory' }
         Remove-Item -LiteralPath $eclipseResolved -Recurse -Force
     }
-    dotnet publish (Join-Path $eclipseWorkspace 'src\Eclipse.Launcher\Eclipse.Launcher.csproj') -c Release -r win-x86 --self-contained true -p:RuntimeFrameworkVersion=10.0.15 -p:PublishReadyToRun=true -p:DebugType=None -p:DebugSymbols=false "-p:Version=$Version" --source https://api.nuget.org/v3/index.json -o $eclipsePublish --nologo
+    dotnet publish (Join-Path $eclipseWorkspace 'src\Eclipse.Launcher\Eclipse.Launcher.csproj') -c Release -r win-x86 --self-contained true -p:RuntimeFrameworkVersion=10.0.15 -p:PublishReadyToRun=false -p:DebugType=None -p:DebugSymbols=false "-p:Version=$Version" --source https://api.nuget.org/v3/index.json -o $eclipsePublish --nologo
     if ($LASTEXITCODE -ne 0) { throw 'Publish failed' }
 }
 if (-not (Test-Path -LiteralPath (Join-Path $eclipsePublish 'coreclr.dll'))) { throw 'Missing self-contained runtime' }

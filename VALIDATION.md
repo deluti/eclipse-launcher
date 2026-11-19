@@ -1,5 +1,13 @@
 # Проверено 20 ноября 2026
 
+## Startup crash hotfix — 0.5.1
+
+Windows recorded repeated `0xc0000005` failures in the installed 0.5.0 process, with `GdipGetImageWidth → Image.Size → LauncherBackdrop.Draw` on the animation stack. Reinstalling preserved the failure. A clean-data reproduction of that same published EXE also exited with `-1073741819` after 9.4 seconds. With ReadyToRun disabled via a process-only diagnostic override it survived 15 seconds. Replacing only Eclipse.dll with its normal JIT build, leaving stock runtime assemblies unchanged and using no environment override, survived 30 seconds and closed with exit code 0. This identifies disabling the launcher's precompiled image as a validated compatibility fix; the underlying runtime fault is not claimed to be fully diagnosed.
+
+The 0.5.1 project and release build explicitly disable PublishReadyToRun. The installed launcher was repaired by replacing only Eclipse.exe, Eclipse.dll, Eclipse.deps.json and Eclipse.runtimeconfig.json, with the originals backed up under `.test-data/installed-backup-*`. No data/session/configuration files were replaced. The repaired app survived 30 seconds on the user's existing settings and cached appearance, then exited normally. Synthetic startup fixtures use fake identity metadata and empty credentials, never the real session.
+
+New publication validation verifies that Eclipse.dll contains no managed native header and launches the actual published x86 EXE for 30 seconds in local and cached-Microsoft skin/cape modes. It checks Ready diagnostics, version, survival and clean exit, with no ReadyToRun environment overrides allowed. The GitHub workflow runs it before publishing. The existing unit suite remains in place.
+
 ## Performance and local launch policy — 0.5.0
 
 See [PERFORMANCE.md](PERFORMANCE.md) for the architecture, native API references, reproducible harness and raw before/after measurements. Warm preparation median changed from 78.9 to 16.3 ms; after releasing game-time caches, 84.2 to 57.1 ms. Six unchanged checks now rewrite the receipt index zero times instead of six. Visible game-time launcher rendering stops completely; measured CPU was 323 ms/s before and 0–12 ms/s in repeated new runs. Private memory in the paired sample fell from 93.6 to 49.4 MiB. First-window times remain in the same range; the sample does not demonstrate a faster first window or a Minecraft FPS increase.

@@ -1,5 +1,12 @@
 # Performance — 0.5.0
 
+Version **0.5.1** disables ReadyToRun for the Eclipse assembly after a reproduced
+x86 startup crash in the published 0.5.0 build. The ordinary JIT assembly survived
+the same run; optimizations and game policy below are retained. Stock .NET runtime
+assemblies are unchanged. Release CI now runs the actual published EXE normally
+for 30 seconds per fixture, including cached skin/cape loading, instead of relying
+only on an early-exit smoke test and a separately built test host.
+
 All policy calculations and measurements are local. Eclipse adds no optimization
 mods, changes no Minecraft options/resource packs, installs no services, and
 uses no administrator privileges. Existing profiles and user data remain intact.

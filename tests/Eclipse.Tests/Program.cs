@@ -8,6 +8,10 @@ using Eclipse;
 
 if (args.Contains("--eclipse-playtime-fixture")) { await Task.Delay(250); return 0; }
 if (args.Contains("--eclipse-playtime-fixture-long")) { await Task.Delay(3500); return 0; }
+if (args is ["--startup-fixtures", var startupFixtureDirectory])
+{ PublishedStartupFixtures.Create(startupFixtureDirectory); return 0; }
+if (args is ["--verify-published-assembly", var publishedAssembly])
+{ PublishedStartupFixtures.VerifyAssembly(publishedAssembly); Console.WriteLine("PASS published launcher uses JIT"); return 0; }
 if (args is ["--benchmark", var benchmarkRoot, var benchmarkResult])
     return await PerformanceDiagnostics.RunAsync(benchmarkRoot, benchmarkResult);
 var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../.test-data"));

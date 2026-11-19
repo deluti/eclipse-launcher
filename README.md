@@ -95,10 +95,10 @@ The development build in `artifacts/Eclipse` is framework-dependent and requires
 Install [Inno Setup 6 or 7](https://jrsoftware.org/isinfo.php), then run:
 
 ```powershell
-.\tools\Build-WindowsRelease.ps1 -Version 0.5.0
+.\tools\Build-WindowsRelease.ps1 -Version 0.5.1
 ```
 
-The script downloads official .NET 10.0.15 runtime packs from NuGet.org, publishes `win-x86` with ReadyToRun, includes runtime/font notices, and produces:
+The script downloads official .NET 10.0.15 runtime packs from NuGet.org, publishes `win-x86` with normal JIT compilation for Eclipse (ReadyToRun is disabled for the launcher assembly), includes runtime/font notices, and produces:
 
 - `artifacts/release/eclipse-launcher-windows-x86.exe`
 - `artifacts/release/SHA256SUMS.txt`
@@ -106,6 +106,7 @@ The script downloads official .NET 10.0.15 runtime packs from NuGet.org, publish
 Use `-IsccPath` to select the Inno Setup compiler. Game files and personal sessions are never included. GitHub Actions builds tagged `v<version>` releases and supports manual builds through **Actions → Windows release**.
 
 The integration script `tools/Test-WindowsUpgrade.ps1` verifies upgrades in isolated copies with a separate installer registration and no test shortcuts. Existing user installation metadata and its Start menu shortcut are checked for changes.
+`tools/Test-PublishedStartup.ps1` checks the actual published EXE for 30 seconds each with a clean local profile and a synthetic cached Microsoft skin/cape profile, then verifies normal exit. CI runs this before uploading any release.
 
 ## Performance and credits
 

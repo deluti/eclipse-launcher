@@ -1,0 +1,16 @@
+﻿[
+    {
+        "case":  "local",
+        "version":  "0.5.1",
+        "aliveSeconds":  30,
+        "exitCode":  0,
+        "firstPaintMs":  889.6339
+    },
+    {
+        "case":  "cached-microsoft",
+        "version":  "0.5.1",
+        "aliveSeconds":  30,
+        "exitCode":  0,
+        "firstPaintMs":  440.1885
+    }
+]
