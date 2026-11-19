@@ -5,8 +5,11 @@ namespace Eclipse;
 
 public sealed record ModdedProfile(string Id, string GameVersion, string Loader, string LoaderVersion)
 {
-    public string GameDirectory => "instances/" + Id;
-    public override string ToString() => $"{GameVersion} · {(Loader == "fabric" ? "Fabric" : "Quilt")} {LoaderVersion}";
+    public string Name { get; init; } = "";
+    public string SourceVersion { get; init; } = "";
+    public bool SharedDirectory { get; init; }
+    public string GameDirectory => SharedDirectory ? "" : "instances/" + Id;
+    public override string ToString() => !string.IsNullOrEmpty(Name) ? Name : Loader == "vanilla" ? GameVersion : $"{GameVersion} · {(Loader == "fabric" ? "Fabric" : "Quilt")} {LoaderVersion}";
     internal static List<ModdedProfile> ReadAll(AppPaths paths)
     {
         try { return JsonStore.Read<List<ModdedProfile>>(paths.FilePath("profiles.json")) ?? []; }
@@ -113,6 +116,7 @@ public sealed class ModLoaders(HttpClient http, AppPaths paths, Minecraft minecr
     private void SaveProfile(ModdedProfile profile)
     {
         var profiles = ModdedProfile.ReadAll(paths);
+        if (profiles.FirstOrDefault(p => p.Id == profile.Id) is { } old) profile = profile with { Name = old.Name };
         profiles.RemoveAll(p => p.Id == profile.Id); profiles.Insert(0, profile);
         JsonStore.Write(paths.FilePath("profiles.json"), profiles);
     }

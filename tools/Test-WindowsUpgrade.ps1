@@ -2,13 +2,13 @@ param(
     [string]$SetupPath,
     [string]$LegacyDirectory,
     [string]$TestHostPath,
-    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$ExpectedVersion = '0.3.0',
-    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$LegacyVersion = '0.2.0'
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$ExpectedVersion = '0.4.0',
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$LegacyVersion = '0.3.0'
 )
 $ErrorActionPreference = 'Stop'
 $eclipseWorkspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (-not $SetupPath) { $SetupPath = Join-Path $eclipseWorkspace 'artifacts\release\eclipse-launcher-windows-x86.exe' }
-if (-not $LegacyDirectory) { $LegacyDirectory = Join-Path $eclipseWorkspace '.test-data\legacy-0.2-runtime' }
+if (-not $LegacyDirectory) { $LegacyDirectory = Join-Path $eclipseWorkspace '.test-data\legacy-0.3-runtime' }
 if (-not $TestHostPath) { $TestHostPath = Join-Path $eclipseWorkspace 'tests\Eclipse.Tests\bin\Release\net10.0-windows\Eclipse.Tests.exe' }
 $eclipseTestRoot = Join-Path $eclipseWorkspace ('.test-data\upgrade-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $eclipseTestRoot -Force | Out-Null
@@ -39,6 +39,9 @@ function Seed-Data([string]$Directory) {
         'settings.json' = '{"Version":"26.3","OfflineMode":true,"Nickname":"Upgrade_Test"}';
         'versions.json' = '{"latest":{"release":"26.3"},"versions":[{"id":"26.3","type":"release"}]}';
         'game\saves\probe\level.dat' = 'world-preservation-probe';
+        'appearance\library.json' = '{"SelectedId":null,"Skins":[]}';
+        'appearance\local-skins\probe.png' = 'skin-preservation-probe';
+        'instances\instance-upgrade\mods\probe.jar' = 'instance-preservation-probe';
         'game\mods\probe.jar' = 'mod-preservation-probe'
     }
     $eclipseHashes = @{}

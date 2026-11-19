@@ -21,6 +21,8 @@ English is the default, including when upgrading older settings. Choose **Englis
 
 - **Minecraft 1.18+**, with automatic downloads from official Minecraft servers and verified file hashes.
 - **Fabric and Quilt** installation using the **+** button next to the version selector. Each modded profile has its own worlds, mods, options and screenshots.
+- **Reusable skin library**: import a PNG on the Skins tab, select Classic or Slim arms, then Apply. Saved skins can be selected again without reimporting.
+- **Named profile copies**: use **…** next to the version selector to create independent copies of any Vanilla, Fabric or Quilt version, or rename the selected profile. Mods and settings can be copied; worlds are optional.
 - **3D skin and cape preview**, with Steve before sign-in, two standing poses, idle animation, a pixel platform and a character outline. Drag to rotate, scroll to zoom, double-click to reset the camera.
 - **Screenshots** gallery with recent images and a full-size viewer.
 - **Files** tree with text editing and quick access to the active profile's mods folder.
@@ -40,6 +42,10 @@ Navigate tabs with **A / D**, then **Enter**, or click a tab. Text fields retain
 Microsoft sign-in and appearance changes require a registered application Client ID with Minecraft API approval. The configured application has previously received `403 / Invalid app registration`; see [application setup](MINECRAFT-API-REQUEST.md). A valid player license alone does not grant an application access to the API. Players do not need to register applications or enter a Client ID themselves.
 
 Skins and capes are loaded from the authenticated profile. Only owned capes can be equipped. The API does not provide the official launcher's complete skin history; Eclipse also remembers skins previously seen for that player.
+
+Imported PNGs stay in `data/appearance/local-skins`, with their model and local selection in `data/appearance/library.json`. In **Microsoft** mode, Apply uploads the selected PNG through the official authenticated Minecraft API. In **Local nickname** mode, Apply saves the selection for the preview and game; **Default** restores Steve. On the first game launch with a custom local skin, Eclipse downloads the unmodified [authlib-injector 1.2.8](https://github.com/yushijinhun/authlib-injector/releases/tag/v1.2.8) agent and verifies its pinned SHA-256. It serves the selected texture from a temporary loopback endpoint while the game runs. Microsoft launches do not load the agent. A local skin is visible in your client; other players need compatible server/client skin support to see it.
+
+Profile copies use stable IDs in `data/instances`. Shared assets, libraries and Java are reused. Renaming changes only the displayed name, preserving paths and worlds. Copying worlds is disabled by default; the original profile remains available.
 
 ## Updating and keeping your data
 
@@ -87,7 +93,7 @@ The development build in `artifacts/Eclipse` is framework-dependent and requires
 Install [Inno Setup 6 or 7](https://jrsoftware.org/isinfo.php), then run:
 
 ```powershell
-.\tools\Build-WindowsRelease.ps1 -Version 0.3.0
+.\tools\Build-WindowsRelease.ps1 -Version 0.4.0
 ```
 
 The script downloads official .NET 10.0.15 runtime packs from NuGet.org, publishes `win-x86` with ReadyToRun, includes runtime/font notices, and produces:

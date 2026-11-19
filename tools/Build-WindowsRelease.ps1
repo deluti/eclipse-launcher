@@ -1,5 +1,5 @@
 param(
-    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '0.3.0',
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '0.4.0',
     [string]$IsccPath,
     [switch]$SkipPublish
 )
@@ -40,6 +40,7 @@ Copy-Item -LiteralPath (Join-Path $eclipseWorkspace 'README.md') -Destination $e
 if (Test-Path -LiteralPath (Join-Path $eclipseWorkspace 'README.ru.md')) { Copy-Item -LiteralPath (Join-Path $eclipseWorkspace 'README.ru.md') -Destination $eclipsePublish -Force }
 $eclipseNotices = Join-Path $eclipsePublish 'Notices'
 New-Item -ItemType Directory -Path $eclipseNotices -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $eclipseWorkspace 'THIRD-PARTY.md') -Destination $eclipseNotices -Force
 $eclipsePackages = if ($env:NUGET_PACKAGES) { $env:NUGET_PACKAGES } else { Join-Path $env:DOTNET_CLI_HOME '.nuget\packages' }
 Copy-Item -LiteralPath (Join-Path $eclipsePackages 'microsoft.netcore.app.runtime.win-x86\10.0.15\LICENSE.TXT') -Destination (Join-Path $eclipseNotices 'dotnet-runtime-LICENSE.txt') -Force
 Copy-Item -LiteralPath (Join-Path $eclipsePackages 'microsoft.netcore.app.runtime.win-x86\10.0.15\THIRD-PARTY-NOTICES.TXT') -Destination (Join-Path $eclipseNotices 'dotnet-THIRD-PARTY-NOTICES.txt') -Force

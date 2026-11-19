@@ -23,6 +23,7 @@ internal sealed class MainForm : Form
     private readonly SkinScene scene = new() { Dock = DockStyle.Fill };
     private readonly PixelComboBox versions = new() { Width = 300, AccessibleName = L.T("Версия Minecraft") };
     private readonly PixelButton installVersion = new() { Text = "+", Width = 38, Height = 36, AccessibleName = L.T("Установить версию") };
+    private readonly PixelButton profileActions = new() { Text = "...", Width = 38, Height = 36, AccessibleName = L.T("Профили") };
     private readonly PixelButton login = new() { Text = L.T("Войти"), Width = 165, Quiet = true, AccessibleName = L.T("Войти через Microsoft") };
     private readonly PixelButton logout = new() { Text = L.T("Выйти"), Width = 100, Quiet = true, Visible = false };
     private readonly PixelButton play = new() { Text = L.T("ИГРАТЬ"), Width = 360, Height = 64, Primary = true, Font = PixelTheme.Font(24), AccessibleName = L.T("Играть") };
@@ -68,14 +69,15 @@ internal sealed class MainForm : Form
         Padding = new Padding(1);
         pages.BackColor = home.BackColor = PixelTheme.Background;
         var launchBar = new Panel { Dock = DockStyle.Bottom, Height = 173, BackColor = PixelTheme.Background };
-        launchBar.Controls.Add(play); launchBar.Controls.Add(versions); launchBar.Controls.Add(installVersion);
+        launchBar.Controls.Add(play); launchBar.Controls.Add(versions); launchBar.Controls.Add(installVersion); launchBar.Controls.Add(profileActions);
         play.BringToFront();
         void LayoutLaunch()
         {
             play.Location = new Point((launchBar.Width - play.Width) / 2, 8);
             playtimeBadge.Bounds = new Rectangle((launchBar.Width - 190) / 2, play.Bottom - 12, 190, 48);
-            versions.Location = new Point((launchBar.Width - versions.Width - installVersion.Width - 8) / 2, 119);
+            versions.Location = new Point((launchBar.Width - versions.Width - installVersion.Width - profileActions.Width - 16) / 2, 119);
             installVersion.Location = new Point(versions.Right + 8, 119);
+            profileActions.Location = new Point(installVersion.Right + 8, 119);
         }
         launchBar.Resize += (_, _) => LayoutLaunch(); LayoutLaunch();
         home.Controls.Add(scene); home.Controls.Add(launchBar); pages.Controls.Add(home);
@@ -140,6 +142,7 @@ internal sealed class MainForm : Form
         update.Click += async (_, _) => await RunAsync(UpdateLauncherAsync);
         playtimeTimer.Tick += (_, _) => RefreshPlaytime();
         installVersion.Click += async (_, _) => await InstallVersionAsync();
+        profileActions.Click += async (_, _) => await EditProfileAsync();
         versions.SelectedIndexChanged += (_, _) => ChangeVersion();
         cancel.Click += (_, _) => operation?.Cancel();
         status.Click += (_, _) => { if (errorDetails != null) PixelDialog.Message(this, "Eclipse", errorDetails); };
@@ -186,6 +189,7 @@ internal sealed class MainForm : Form
         if (input is TextBoxBase or ComboBox { DroppedDown: true } or NumericUpDown || input?.Parent is NumericUpDown)
             return base.ProcessCmdKey(ref msg, keyData);
         if (input == update && keyData is Keys.Space or Keys.Enter) { if (update.Enabled) update.PerformClick(); return true; }
+        if (input == profileActions && keyData is Keys.Space or Keys.Enter) { if (profileActions.Enabled) profileActions.PerformClick(); return true; }
         if (keyData == Keys.Space && Navigation.ActiveTab == LauncherTab.Eclipse && input is not PixelComboBox && input != installVersion && !versions.DroppedDown)
         {
             if (play.Enabled) play.PerformClick();
@@ -237,9 +241,21 @@ internal sealed class MainForm : Form
                     if (skins == null)
                     {
                         skins = new SkinsPage(SetStatus);
-                        skins.ReloadRequested += () => RunAsync(async ct => { var account = await AuthenticateAsync(false, ct); await LoadAppearanceAsync(appearance!.Remember(account)); });
+                        skins.ReloadRequested += () => RunAsync(async ct =>
+                        {
+                            if (settings.OfflineMode) { await RefreshSkinsAsync(); return; }
+                            var account = await AuthenticateAsync(false, ct); await LoadAppearanceAsync(appearance!.Remember(account));
+                        });
                         skins.ApplyRequested += (skin, cape) => RunAsync(async ct =>
                         {
+                            if (settings.OfflineMode)
+                            {
+                                var local = appearance!.Library.Find(skin);
+                                if (skin != null && local == null) throw new InvalidOperationException(L.T("Скин отсутствует в библиотеке."));
+                                appearance.Library.Select(local);
+                                await LoadLocalAppearanceAsync(); await RefreshSkinsAsync();
+                                SetStatus(L.T("Внешний вид сохранён")); return;
+                            }
                             var account = await AuthenticateAsync(false, ct);
                             var updated = await appearance!.ApplyAsync(account, skin, cape, ct);
                             await LoadAppearanceAsync(updated); SetStatus(L.T("Внешний вид сохранён"));
@@ -283,7 +299,7 @@ internal sealed class MainForm : Form
             page.BringToFront();
             if (tab == LauncherTab.Screenshots) await gallery!.ReloadAsync();
             if (tab == LauncherTab.Files && files!.Tag is not true) { files.Tag = true; await files.ReloadAsync(); }
-            if (tab == LauncherTab.Skins && appearance != null) await skins!.SetProfileAsync(profile, appearance);
+            if (tab == LauncherTab.Skins && appearance != null) await RefreshSkinsAsync();
         }
         catch (Exception ex) when (ex is IOException or ArgumentException or InvalidOperationException) { ShowError(ex); }
     }
@@ -327,7 +343,7 @@ internal sealed class MainForm : Form
             Ready = true;
             SetBusy(false);
             if (!settings.OfflineMode && !string.IsNullOrEmpty(name) && cached?.Name == name) await LoadAppearanceAsync(cached);
-            if (skins != null) await skins.SetProfileAsync(profile, appearance);
+            if (skins != null) await RefreshSkinsAsync();
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { if (!IsDisposed) ShowError(ex); }
@@ -346,7 +362,7 @@ internal sealed class MainForm : Form
             using var capeBitmap = cape == null ? null : await appearance.TextureAsync(cape, lifetime.Token);
             if (IsDisposed || generation != appearanceGeneration) return;
             scene.SetAppearance(skinBitmap, skin?.Variant == "SLIM", capeBitmap);
-            if (skins != null) await skins.SetProfileAsync(profile, appearance);
+            if (skins != null) await RefreshSkinsAsync();
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) when (ex is IOException or HttpRequestException or ArgumentException) { SetStatus(L.T("Скин временно недоступен")); }
@@ -355,6 +371,22 @@ internal sealed class MainForm : Form
     {
         var account = await AuthenticateAsync(true, ct);
         _ = LoadAppearanceAsync(appearance!.Remember(account)); SetStatus(L.T("Лицензия подтверждена"));
+    }
+    private Task RefreshSkinsAsync() => skins != null && appearance != null
+        ? skins.SetProfileAsync(profile, appearance, settings.OfflineMode, settings.Nickname) : Task.CompletedTask;
+    private async Task LoadLocalAppearanceAsync()
+    {
+        if (appearance == null) return;
+        var generation = ++appearanceGeneration;
+        try
+        {
+            var local = appearance.Library.Selected();
+            using var bitmap = local == null ? null : await Task.Run(() => appearance.Library.Load(local), lifetime.Token);
+            if (!IsDisposed && settings.OfflineMode && generation == appearanceGeneration)
+                scene.SetAppearance(bitmap, local?.Variant == "SLIM", null);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) when (ex is IOException or ArgumentException) { if (!IsDisposed) ShowError(ex); }
     }
     private async Task<LicensedAccount> AuthenticateAsync(bool interactive, CancellationToken ct)
     {
@@ -397,7 +429,7 @@ internal sealed class MainForm : Form
         play.Text = operation != null ? L.T("ПОДГОТОВКА…") : L.T("ИГРАТЬ");
         if (operation == null) update.Text = L.T("Обновить");
         if (Ready && operation == null) SetStatus(L.T("Готов к запуску"));
-        if (skins?.Visible == true && appearance != null) _ = skins.SetProfileAsync(profile, appearance);
+        if (skins?.Visible == true && appearance != null) _ = RefreshSkinsAsync();
     }
     private async Task CheckUpdatesAsync()
     {
@@ -438,8 +470,9 @@ internal sealed class MainForm : Form
             login.AccessibleName = L.T("Настройки никнейма");
             logout.Visible = false;
             appearanceGeneration++;
-            if (profile != null) { profile = null; scene.SetAppearance(null, false, null); }
-            if (skins != null && appearance != null) _ = skins.SetProfileAsync(null, appearance);
+            profile = null;
+            if (appearance != null) _ = LoadLocalAppearanceAsync();
+            if (skins != null && appearance != null) _ = RefreshSkinsAsync();
         }
         else
         {
@@ -459,8 +492,9 @@ internal sealed class MainForm : Form
         var list = manifest.GetProperty("versions").EnumerateArray().Where(v => v.Text("type") == "release" && SupportedRelease(v.Text("id"))).Select(v => v.Text("id")).ToArray();
         bindingVersions = true;
         versions.BeginUpdate(); versions.Items.Clear();
-        versions.Items.AddRange(ModdedProfile.ReadAll(paths).Cast<object>());
-        versions.Items.AddRange(list);
+        var savedProfiles = ModdedProfile.ReadAll(paths);
+        versions.Items.AddRange(savedProfiles.Cast<object>());
+        versions.Items.AddRange(list.Where(id => !savedProfiles.Any(p => p.Id == id)).ToArray());
         versions.SelectedItem = versions.Items.FirstOrDefault(item => VersionId(item) == previous) ?? manifest.GetProperty("latest").Text("release");
         if (versions.SelectedIndex < 0 && list.Length > 0) versions.SelectedIndex = 0;
         versions.EndUpdate(); bindingVersions = false; ChangeVersion(); SetStatus(L.T("Версии обновлены"));
@@ -491,7 +525,8 @@ internal sealed class MainForm : Form
     {
         if (operation != null || minecraft == null || http == null) return;
         var baseVersion = versions.SelectedItem is ModdedProfile profile ? profile.GameVersion : VersionId(versions.SelectedItem);
-        using var dialog = new VersionInstallerDialog(new ModLoaders(http, paths, minecraft), versions.Items.OfType<string>(), baseVersion);
+        var games = versions.Items.Select(item => item is ModdedProfile p ? p.GameVersion : VersionId(item)).Distinct().ToArray();
+        using var dialog = new VersionInstallerDialog(new ModLoaders(http, paths, minecraft), games, baseVersion);
         dialog.ShowDialog(this);
         if (dialog.InstalledProfile is not { } installed || IsDisposed) return;
         try
@@ -504,6 +539,28 @@ internal sealed class MainForm : Form
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { if (!IsDisposed) ShowError(ex); }
+    }
+    private async Task EditProfileAsync()
+    {
+        if (operation != null || minecraft == null) return;
+        var selected = versions.SelectedItem;
+        var id = VersionId(selected);
+        if (string.IsNullOrEmpty(id)) return;
+        using var dialog = new ProfileEditDialog(selected!.ToString()!);
+        var result = dialog.ShowDialog(this);
+        if (result is not (DialogResult.OK or DialogResult.Yes)) return;
+        if (result == DialogResult.OK && files != null && !files.ConfirmLeave()) return;
+        await RunAsync(async ct =>
+        {
+            var manager = new GameProfiles(paths);
+            var changed = result == DialogResult.Yes ? manager.Rename(id, dialog.ProfileName)
+                : await Task.Run(() => manager.CopyAsync(id, dialog.ProfileName, dialog.CopyContent, dialog.CopyWorlds, currentProgress!, ct), ct);
+            settings.Version = changed.Id;
+            await LoadVersionsAsync(false, ct);
+            versions.SelectedItem = versions.Items.OfType<ModdedProfile>().First(p => p.Id == changed.Id);
+            JsonStore.Write(paths.FilePath("settings.json"), settings);
+            SetStatus(L.T("Профиль сохранён"));
+        });
     }
     private async Task RunAsync(Func<CancellationToken, Task> action)
     {
@@ -522,6 +579,7 @@ internal sealed class MainForm : Form
     private void SetBusy(bool busy)
     {
         installVersion.Enabled = !busy;
+        profileActions.Enabled = !busy;
         update.Enabled = !busy && availableUpdate != null;
         login.Enabled = logout.Enabled = play.Enabled = versions.Enabled = !busy;
         play.Text = busy ? L.T("ПОДГОТОВКА…") : L.T("ИГРАТЬ");

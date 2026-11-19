@@ -13,6 +13,9 @@ internal sealed class SkinsPage : UserControl
     private PlayerTexture? chosenSkin;
     private PlayerTexture? chosenCape;
     private int generation;
+    private AppearanceProfile? currentProfile;
+    private bool offlineMode;
+    private string playerName = "";
     public event Func<Task>? ReloadRequested;
     internal void Animate(double elapsed) => scene.Animate(Rectangle.Empty, elapsed);
     public event Func<PlayerTexture?, PlayerTexture?, Task>? ApplyRequested;
@@ -32,30 +35,57 @@ internal sealed class SkinsPage : UserControl
         var bar = new Panel { Dock = DockStyle.Top, Height = 58, Padding = new Padding(24, 8, 20, 8) };
         name.AutoSize = false; name.Dock = DockStyle.Fill; name.TextAlign = ContentAlignment.MiddleLeft;
         var reload = new PixelButton { Text = L.T("Обновить"), Dock = DockStyle.Right, Width = 145 };
-        bar.Controls.Add(name); bar.Controls.Add(reload);
+        var import = new PixelButton { Text = L.T("Загрузить скин"), Dock = DockStyle.Right, Width = 175, AccessibleName = L.T("Загрузить скин") };
+        import.Click += async (_, _) =>
+        {
+            using var picker = new OpenFileDialog { Filter = "PNG (*.png)|*.png", Title = L.T("Загрузить скин"), CheckFileExists = true };
+            if (picker.ShowDialog(this) != DialogResult.OK) return;
+            using var model = new SkinModelDialog();
+            if (model.ShowDialog(this) != DialogResult.OK) return;
+            try { await ImportFileAsync(picker.FileName, model.Slim); }
+            catch (Exception ex) when (ex is IOException or ArgumentException or InvalidOperationException)
+            { UiSounds.Play(UiCue.Error); PixelDialog.Message(this, L.T("Скины"), ex.Message); }
+        };
+        bar.Controls.Add(name); bar.Controls.Add(import); bar.Controls.Add(reload);
         Controls.Add(scene); Controls.Add(right); Controls.Add(bar);
         reload.Click += async (_, _) => { if (ReloadRequested != null) await ReloadRequested(); };
         apply.Click += async (_, _) => { if (ApplyRequested != null) await ApplyRequested(chosenSkin, chosenCape); };
     }
-    public async Task SetProfileAsync(AppearanceProfile? profile, AppearanceService service)
+    public async Task SetProfileAsync(AppearanceProfile? profile, AppearanceService service, bool offline = false, string nickname = "", PlayerTexture? focusSkin = null)
     {
         this.service = service;
+        currentProfile = profile; offlineMode = offline; playerName = nickname;
         var current = ++generation;
-        if (profile == null) L.SetText(name, "Войдите в Microsoft");
+        if (offline) { L.PreserveUserText(name); name.Text = nickname; }
+        else if (profile == null) L.SetText(name, "Войдите в Microsoft");
         else { L.PreserveUserText(name); name.Text = profile.Name; }
         foreach (var item in skins.Controls.Cast<Control>().Concat(capes.Controls.Cast<Control>()).ToArray()) item.Dispose();
         skins.Controls.Clear(); capes.Controls.Clear();
-        chosenSkin = profile?.Skins.FirstOrDefault(s => s.Active) ?? profile?.Skins.FirstOrDefault();
+        chosenSkin = focusSkin ?? (offline ? service.Library.Selected()?.Texture(true) : profile?.Skins.FirstOrDefault(s => s.Active) ?? profile?.Skins.FirstOrDefault());
         chosenCape = profile?.Capes.FirstOrDefault(s => s.Active);
-        apply.Enabled = profile != null;
-        if (profile == null) { scene.SetAppearance(null, false, null); return; }
+        apply.Enabled = offline || profile != null;
+        if (offline)
+        {
+            using var steve = SkinScene.CreateDefaultSkin();
+            var standard = new TextureTile(null, false, steve, L.T("По умолчанию")) { Selected = chosenSkin == null };
+            standard.Click += async (_, _) => { chosenSkin = null; SelectTile(skins, standard); await UpdatePreviewAsync(current); };
+            skins.Controls.Add(standard);
+        }
         var none = new TextureTile(null, true, null, L.T("Без плаща")) { Selected = chosenCape == null };
         none.Click += async (_, _) => { chosenCape = null; SelectTile(capes, none); await UpdatePreviewAsync(current); };
         capes.Controls.Add(none);
         try
         {
+            foreach (var local in service.Library.All())
+            {
+                using var bitmap = service.Library.Load(local);
+                var item = local.Texture(chosenSkin?.Id == "local:" + local.Id);
+                var tile = new TextureTile(item, false, bitmap, local.Name) { Selected = item.Id == chosenSkin?.Id };
+                tile.Click += async (_, _) => { chosenSkin = item; SelectTile(skins, tile); await UpdatePreviewAsync(current); };
+                skins.Controls.Add(tile);
+            }
             var number = 0;
-            foreach (var item in profile.Skins)
+            foreach (var item in profile?.Skins ?? [])
             {
                 using var bitmap = await service.TextureAsync(item, lifetime.Token);
                 if (current != generation || IsDisposed) return;
@@ -63,7 +93,7 @@ internal sealed class SkinsPage : UserControl
                 tile.Click += async (_, _) => { chosenSkin = item; SelectTile(skins, tile); await UpdatePreviewAsync(current); };
                 skins.Controls.Add(tile);
             }
-            foreach (var item in profile.Capes)
+            foreach (var item in profile?.Capes ?? [])
             {
                 using var bitmap = await service.TextureAsync(item, lifetime.Token);
                 if (current != generation || IsDisposed) return;
@@ -75,6 +105,12 @@ internal sealed class SkinsPage : UserControl
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) when (ex is IOException or HttpRequestException or ArgumentException) { report(L.T("Не удалось загрузить текстуру: ") + ex.Message); }
+    }
+    internal async Task ImportFileAsync(string path, bool slim)
+    {
+        if (service == null) return;
+        var local = await Task.Run(() => service.Library.Import(path, slim), lifetime.Token);
+        await SetProfileAsync(currentProfile, service, offlineMode, playerName, local.Texture(false));
     }
     private static void SelectTile(FlowLayoutPanel panel, TextureTile tile)
     {

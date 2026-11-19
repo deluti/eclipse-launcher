@@ -24,6 +24,7 @@ public sealed class AppearanceProfile
 
 public sealed class AppearanceService(HttpClient http, AppPaths paths)
 {
+    internal SkinLibrary Library { get; } = new(paths);
     private const string ProfileUrl = "https://api.minecraftservices.com/minecraft/profile";
     public AppearanceProfile? CachedProfile()
     {
@@ -57,6 +58,8 @@ public sealed class AppearanceService(HttpClient http, AppPaths paths)
     }
     public async Task<Bitmap> TextureAsync(PlayerTexture texture, CancellationToken ct)
     {
+        if (texture.Url.StartsWith("eclipse-local:", StringComparison.Ordinal))
+            return Library.Load(Library.Find(texture) ?? throw new InvalidDataException(L.T("Скин отсутствует в библиотеке.")));
         var uri = TextureUri(texture.Url);
         var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(uri.AbsoluteUri)));
         var cache = paths.FilePath("appearance/textures/" + key + ".png");
@@ -91,12 +94,26 @@ public sealed class AppearanceService(HttpClient http, AppPaths paths)
     public async Task<AppearanceProfile> ApplyAsync(LicensedAccount account, PlayerTexture? skin, PlayerTexture? cape, CancellationToken ct)
     {
         var profile = Remember(account);
-        if (skin != null && !profile.Skins.Any(item => item.Url == skin.Url)) throw new InvalidOperationException(L.T("Скин отсутствует в гардеробе игрока."));
+        var local = Library.Find(skin);
+        if (skin != null && local == null && !profile.Skins.Any(item => item.Url == skin.Url)) throw new InvalidOperationException(L.T("Скин отсутствует в гардеробе игрока."));
         if (cape != null && !profile.Capes.Any(item => item.Id == cape.Id)) throw new InvalidOperationException(L.T("Этот плащ не принадлежит игроку."));
         if (skin != null && !profile.Skins.Any(item => item.Url == skin.Url && item.Active))
         {
-            var uri = TextureUri(skin.Url);
-            await MutateAsync(HttpMethod.Post, ProfileUrl + "/skins", new { url = uri.AbsoluteUri, variant = skin.Variant.Equals("SLIM", StringComparison.OrdinalIgnoreCase) ? "slim" : "classic" }, account.AccessToken, ct).ConfigureAwait(false);
+            byte[] bytes;
+            if (local != null) bytes = Library.Bytes(local);
+            else
+            {
+                using var bitmap = await TextureAsync(skin, ct).ConfigureAwait(false);
+                using var png = new MemoryStream(); bitmap.Save(png, System.Drawing.Imaging.ImageFormat.Png); bytes = png.ToArray();
+            }
+            using var request = new HttpRequestMessage(HttpMethod.Post, ProfileUrl + "/skins");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", account.AccessToken);
+            using var form = new MultipartFormDataContent();
+            form.Add(new StringContent(skin.Variant.Equals("SLIM", StringComparison.OrdinalIgnoreCase) ? "slim" : "classic"), "variant");
+            var image = new ByteArrayContent(bytes); image.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+            form.Add(image, "file", "skin.png"); request.Content = form;
+            using var response = await http.SendAsync(request, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) throw new ServiceException(L.T("Не удалось изменить внешний вид игрока. HTTP ") + (int)response.StatusCode, response.StatusCode);
         }
         var activeCape = profile.Capes.FirstOrDefault(item => item.Active);
         if (activeCape?.Id != cape?.Id)

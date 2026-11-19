@@ -1,4 +1,14 @@
-# Проверено 18 ноября 2026
+# Проверено 19 ноября 2026
+
+## Skin library and named profile copies — 0.4.0
+
+Imported PNG skins are normalized and saved with their Classic/Slim model. Local selection survives restart; the default skin can be restored without removing imported files. Offline launches with a custom skin use a SHA-256-pinned, unmodified authlib-injector 1.2.8 and a temporary loopback texture provider. Microsoft launches do not load it. Microsoft skin changes upload multipart PNG data to the authenticated official endpoint; this was verified with simulated HTTP, without modifying a real account. Real-account changes remain subject to the existing Minecraft API application approval described below.
+
+67 tests passed in the x64 workspace, including the optional signed local texture API test with the verified upstream agent; 66 tests passed in the self-contained x86 test host (the optional agent test is separate). Tests cover malformed/oversized PNGs, both models, import deduplication, source-file removal, persistence, multipart upload and bearer authorization, rejection of foreign capes, isolated copies, opt-in world copies, stable rename paths, shared runtime reuse, cycle rejection and cancellation cleanup. Full UI checks passed in English and Russian, including import/apply/default and the new profile dialog. The x86 English run measured 119.8 FPS and 120.3 rotation positions/s.
+
+The real Minecraft 26.3 authlib 10.0.77 accepted the selected Slim texture with signature state SIGNED and downloaded its PNG from the provider. Real Vanilla, Fabric 0.20.1 and Quilt 0.30.2 game launches reached GUI textures with the agent loaded. Tests used isolated game directories. Evidence is under `.test-data/real-skin-0.4` and `.test-data/skin-game-*`. The test does not assert that other players can see a local skin; that requires compatible multiplayer skin support.
+
+The local 0.4.0 installer passed the 0.3.0 upgrade test: existing-folder detection, automatic update/restart with custom data, preserved worlds/mods/profiles/hours and skin-library files, and preservation on uninstall. The user's actual installed launcher, registration and shortcut were untouched. First paint of the installed x86 launcher: 399.8 ms. Publication verification follows after the GitHub build.
 
 ## English and Russian — 0.3.0
 

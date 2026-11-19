@@ -57,8 +57,20 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
             if (plan.NativeFiles.Any(f => !File.Exists(AppPaths.SafeChild(paths.Root, f)))) ExtractNatives(plan);
             return plan;
         }
-        if (ModdedProfile.ReadAll(paths).FirstOrDefault(p => p.Id == version) is { } profile)
-            return await new ModLoaders(http, paths, this).InstallAsync(profile.Loader, profile.GameVersion, profile.LoaderVersion, progress, ct).ConfigureAwait(false);
+        var profiles = ModdedProfile.ReadAll(paths);
+        if (profiles.FirstOrDefault(p => p.Id == version) is { } profile)
+        {
+            if (!string.IsNullOrEmpty(profile.SourceVersion))
+            {
+                var runtimeId = GameProfiles.ResolveRuntime(version, profiles);
+                var source = await PrepareAsync(runtimeId, progress, ct).ConfigureAwait(false);
+                var instance = GameProfiles.InstancePlan(source, profile);
+                JsonStore.Write(planPath, instance);
+                return instance;
+            }
+            if (profile.Loader != "vanilla")
+                return await new ModLoaders(http, paths, this).InstallAsync(profile.Loader, profile.GameVersion, profile.LoaderVersion, progress, ct).ConfigureAwait(false);
+        }
 
         progress.Report(L.T("Получение описания Minecraft ") + version + "…");
         var manifest = await VersionsAsync(false, ct).ConfigureAwait(false);
@@ -246,7 +258,9 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
     private async Task<int> RunGameAsync(InstallPlan plan, LaunchProfile account, int memoryMb, IProgress<string> progress, CancellationToken ct, Settings? options)
     {
         ct.ThrowIfCancellationRequested();
-        var info = await CreateStartInfoAsync(plan, account, memoryMb, ct, options).ConfigureAwait(false);
+        await using var localSkin = account.UserType == "legacy"
+            ? await LocalSkinRuntime.StartAsync(http, paths, OfflineAccount.Create(account.Name), progress, ct).ConfigureAwait(false) : null;
+        var info = await CreateStartInfoAsync(plan, account, memoryMb, ct, options, localSkin?.JvmArguments).ConfigureAwait(false);
         Directory.CreateDirectory(paths.FilePath("logs"));
         await using var log = new StreamWriter(paths.FilePath("logs/game-latest.log"), false, new UTF8Encoding(false)) { AutoFlush = true };
         progress.Report(L.T("Запуск Minecraft…"));
@@ -279,7 +293,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
     internal Task<ProcessStartInfo> CreateOfflineStartInfoAsync(InstallPlan plan, OfflineAccount account, int memoryMb, CancellationToken ct, Settings? options = null)
         => CreateStartInfoAsync(plan, OfflineProfile(account), memoryMb, ct, options);
 
-    private async Task<ProcessStartInfo> CreateStartInfoAsync(InstallPlan plan, LaunchProfile account, int memoryMb, CancellationToken ct, Settings? options)
+    private async Task<ProcessStartInfo> CreateStartInfoAsync(InstallPlan plan, LaunchProfile account, int memoryMb, CancellationToken ct, Settings? options, IReadOnlyList<string>? extraJvm = null)
     {
         var nativeDir = AppPaths.SafeChild(paths.Root, $"game/versions/{(string.IsNullOrEmpty(plan.BaseVersion) ? plan.Version : plan.BaseVersion)}/natives");
         Directory.CreateDirectory(nativeDir);
@@ -290,7 +304,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
             ["natives_directory"] = nativeDir, ["launcher_name"] = "Eclipse", ["launcher_version"] = LauncherUpdates.CurrentVersion.ToString(3),
             ["classpath"] = string.Join(Path.PathSeparator, plan.ClassPath.Select(p => AppPaths.SafeChild(paths.Root, p))),
             ["classpath_separator"] = Path.PathSeparator.ToString(), ["library_directory"] = Path.Combine(paths.SharedGame, "libraries"),
-            ["auth_player_name"] = account.Name, ["version_name"] = plan.Version, ["game_directory"] = gameDirectory,
+            ["auth_player_name"] = account.Name, ["version_name"] = ModdedProfile.ReadAll(paths).FirstOrDefault(p => p.Id == plan.Version)?.ToString() ?? plan.Version, ["game_directory"] = gameDirectory,
             ["assets_root"] = Path.Combine(paths.SharedGame, "assets"), ["assets_index_name"] = plan.AssetIndex,
             ["auth_uuid"] = account.Uuid, ["auth_access_token"] = account.AccessToken, ["clientid"] = account.ClientId,
             ["auth_xuid"] = account.Xuid, ["user_type"] = account.UserType, ["version_type"] = "release", ["user_properties"] = "{}"
@@ -300,6 +314,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
         var jvm = plan.JvmArguments.Select(Expand).ToList();
         jvm.Add("-Xms256M");
         jvm.Add("-Xmx" + Math.Clamp(memoryMb, 1024, 32768) + "M");
+        if (extraJvm != null) jvm.AddRange(extraJvm);
         jvm.Add(plan.MainClass);
         // JVM argument file avoids Windows' command line limit; it contains no account credentials.
         var argFile = AppPaths.SafeChild(paths.Root, $"game/versions/{plan.Version}/jvm.args");

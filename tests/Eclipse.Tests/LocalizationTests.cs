@@ -25,6 +25,8 @@ internal static class LocalizationTests
     internal static Task CatalogAsync()
     {
         Check(L.English.Count >= 180, "All application messages must be covered");
+        foreach (var key in new[] { "Загрузить скин", "По умолчанию", "Модель скина", "Профили", "Название профиля", "Создать копию", "Переименовать" })
+            Check(L.English.ContainsKey(key), "Missing skin/profile translation: " + key);
         foreach (var (key, english) in L.English)
         {
             Check(!string.IsNullOrWhiteSpace(english), "Empty translation: " + key);

@@ -7,6 +7,12 @@ using System.Text.Json;
 using Eclipse;
 
 if (args.Contains("--eclipse-playtime-fixture")) { await Task.Delay(250); return 0; }
+if (args is ["--real-skin-check", var realGameRoot, var realSkinCheckRoot, var realSkinAgent])
+    return await LocalSkinDiagnostics.RunAsync(realGameRoot, realSkinCheckRoot, realSkinAgent);
+if (args is ["--skin-game-check", var skinGameRoot, var skinGameCheckRoot, var skinGameVersion, var gameSkinAgent])
+    return await OfflineLaunchDiagnostics.RunAsync(skinGameRoot, skinGameCheckRoot, skinGameVersion, gameSkinAgent);
+if (args is ["--skin-runtime-check", var runtimeCheckRoot, var skinAgent])
+{ await SkinProfileTests.RuntimeAsync(runtimeCheckRoot, skinAgent); Console.WriteLine("PASS signed local texture API and pinned agent"); return 0; }
 var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../.test-data"));
 Directory.CreateDirectory(root);
 if (args is ["--download-launcher-update", var runningVersion, var updateDirectory])
@@ -728,6 +734,11 @@ await Test("One-click installer arguments preserve app and custom data directori
 await Test("English is the default for new and upgraded settings; language persists", () => LocalizationTests.SettingsAsync(root, initialLanguage));
 await Test("All English resources are translated and preserve formatting placeholders", LocalizationTests.CatalogAsync);
 await Test("Errors and hour formatting use the selected language", LocalizationTests.MessagesAsync);
+await Test("Imported PNG skins persist, deduplicate, validate and load without HTTP", () => SkinProfileTests.LibraryAsync(root));
+await Test("Microsoft skin changes upload the saved PNG as authenticated multipart data", () => SkinProfileTests.UploadAsync(root));
+await Test("Copied profiles isolate mods and worlds; renaming preserves paths", () => SkinProfileTests.CopiesAsync(root));
+if (File.Exists(Path.Combine(root, "skin-agent", "agent.jar")))
+    await Test("Local skin session serves signed textures and implements no authentication", () => SkinProfileTests.RuntimeAsync(root, Path.Combine(root, "skin-agent", "agent.jar")));
 Console.WriteLine($"{passed} tests passed.");
 return 0;
 

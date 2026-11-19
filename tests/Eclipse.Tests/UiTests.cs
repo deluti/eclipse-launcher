@@ -98,6 +98,7 @@ internal static class UiTests
                         Command(form, Keys.Enter); await Task.Delay(250);
                         Check(Find<SkinsPage>(form).Single().Visible, "Enter opens skins");
                         Capture(form, screenshotDirectory, "skins");
+                        await CheckSkinLibraryAsync(form, paths, screenshotDirectory);
                         Command(form, Keys.D); Command(form, Keys.Enter); await Task.Delay(250);
                         var settingsPage = Find<SettingsPage>(form).Single();
                         Check(settingsPage.Visible && form.Navigation.ActiveTab == LauncherTab.Settings, "Fifth tab is settings");
@@ -206,6 +207,27 @@ internal static class UiTests
         return 0;
     }
     private static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
+    private static async Task CheckSkinLibraryAsync(MainForm form, AppPaths paths, string screenshots)
+    {
+        var page = Find<SkinsPage>(form).Single();
+        await page.ImportFileAsync(SkinProfileTests.Fixture(paths), true);
+        var library = new SkinLibrary(paths);
+        Check(library.All().Count == 1, "Imported skin appears in the saved library");
+        Find<PixelButton>(page).Single(b => b.Text == L.T("Применить")).PerformClick();
+        for (var i = 0; library.Selected() == null && i < 50; i++) await Task.Delay(20);
+        Check(library.Selected()?.Variant == "SLIM", "Apply saves the local skin without Microsoft sign-in");
+        for (var i = 0; typeof(MainForm).GetField("operation", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(form) != null && i < 50; i++) await Task.Delay(20);
+        Capture(form, screenshots, "custom-skin");
+        var standard = Find<TextureTile>(page).Single(t => t.Tag == null && t.AccessibleName == L.T("По умолчанию"));
+        typeof(Control).GetMethod("OnClick", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(standard, [EventArgs.Empty]);
+        Find<PixelButton>(page).Single(b => b.Text == L.T("Применить")).PerformClick();
+        for (var i = 0; typeof(MainForm).GetField("operation", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(form) != null && i < 50; i++) await Task.Delay(20);
+        Check(library.Selected() == null && library.All().Count == 1, "Steve can be restored without removing the saved PNG");
+        using var dialog = new ProfileEditDialog("Fixture"); dialog.Show(form);
+        Check(Find<TextBox>(dialog).Single().MaxLength == 64, "Profile names are editable");
+        foreach (var button in Find<PixelButton>(dialog)) Check(dialog.ClientRectangle.Contains(button.Bounds), "Profile actions fit in both languages");
+        Capture(dialog, screenshots, "profile-dialog"); dialog.Close();
+    }
     private static void CheckEffectPlacement(MainForm form)
     {
         var navigation = form.Navigation;
