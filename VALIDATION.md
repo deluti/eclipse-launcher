@@ -8,7 +8,9 @@ Imported PNG skins are normalized and saved with their Classic/Slim model. Local
 
 The real Minecraft 26.3 authlib 10.0.77 accepted the selected Slim texture with signature state SIGNED and downloaded its PNG from the provider. Real Vanilla, Fabric 0.20.1 and Quilt 0.30.2 game launches reached GUI textures with the agent loaded. Tests used isolated game directories. Evidence is under `.test-data/real-skin-0.4` and `.test-data/skin-game-*`. The test does not assert that other players can see a local skin; that requires compatible multiplayer skin support.
 
-The local 0.4.0 installer passed the 0.3.0 upgrade test: existing-folder detection, automatic update/restart with custom data, preserved worlds/mods/profiles/hours and skin-library files, and preservation on uninstall. The user's actual installed launcher, registration and shortcut were untouched. First paint of the installed x86 launcher: 399.8 ms. Publication verification follows after the GitHub build.
+The local 0.4.0 installer passed the 0.3.0 upgrade test: existing-folder detection, automatic update/restart with custom data, preserved worlds/mods/profiles/hours and skin-library files, and preservation on uninstall. The user's actual installed launcher, registration and shortcut were untouched. First paint of the installed x86 launcher: 399.8 ms.
+
+Release [v0.4.0](https://github.com/deluti/eclipse-launcher/releases/tag/v0.4.0) is published. [GitHub Actions](https://github.com/deluti/eclipse-launcher/actions/runs/44539609480) passed testing, packaging and publishing at commit `181d01c38cef5e2399ca709dd9260aefa811d876`. The real updater detected 0.4.0 from 0.3.0 and downloaded the public installer without account credentials. GitHub's asset digest, the downloaded file and `SHA256SUMS.txt` agree: `e02bfccc1e46203314aae890357038e4d370c0a0603a6ee51d966e8439de4a4e` (34,438,153 bytes). That downloaded installer passed the complete isolated upgrade/automatic-restart/data-preservation checks; installed first paint was 401.1 ms. The workspace build was updated and painted in 323.1 ms. Local release artifacts now contain the verified CI installer.
 
 ## English and Russian — 0.3.0
 
