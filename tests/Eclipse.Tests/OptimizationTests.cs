@@ -36,7 +36,11 @@ internal static class OptimizationTests
         var index = paths.FilePath("verified-files.json"); var modified = File.GetLastWriteTimeUtc(index);
         await downloads.EnsureAllAsync([file], new InlineProgress(), default);
         Check(requests == 1 && downloads.ReceiptWrites == 1 && File.GetLastWriteTimeUtc(index) == modified, "Warm verification performs no download or receipt rewrite");
-        var target = AppPaths.SafeChild(paths.Root, file.RelativePath); File.WriteAllText(target, "tampered content");
+        var target = AppPaths.SafeChild(paths.Root, file.RelativePath);
+        var verifiedModified = File.GetLastWriteTimeUtc(target);
+        File.WriteAllText(target, "tampered content");
+        // Some CI filesystems can retain the same timestamp for two immediate, same-size writes.
+        File.SetLastWriteTimeUtc(target, verifiedModified.AddSeconds(2));
         await downloads.EnsureAllAsync([file], new InlineProgress(), default);
         Check(requests == 2 && File.ReadAllBytes(target).SequenceEqual(bytes), "A changed file is repaired");
         await Reject<OperationCanceledException>(() => downloads.EnsureAllAsync([file], new InlineProgress(), new CancellationToken(true)));
