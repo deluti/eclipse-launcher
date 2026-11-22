@@ -1,8 +1,12 @@
 # Eclipse
 
+**[Windows](https://github.com/deluti/eclipse-launcher/releases/latest/download/eclipse-launcher-windows-x86.exe)** · **[Arch Linux / Omarchy](https://github.com/deluti/eclipse-launcher/releases/latest/download/eclipse-launcher-linux-x64.pkg.tar.zst)** · **[Portable Linux](https://github.com/deluti/eclipse-launcher/releases/latest/download/eclipse-launcher-linux-x64.tar.gz)**
+
+Для Arch Linux и его x86_64-производных доступна нативная самодостаточная сборка без Wine. Пакет устанавливается командой `sudo pacman -U ./eclipse-launcher-linux-x64.pkg.tar.zst`; portable-архив можно просто распаковать и запустить через `./Eclipse`. Данные хранятся в `${XDG_DATA_HOME:-$HOME/.local/share}/eclipse-launcher`, а путь можно переопределить переменной `ECLIPSE_DATA_DIR`. Minecraft использует официальный Linux x64 runtime Mojang; поддерживаются X11 и Wayland, Fabric и Quilt.
+
 [English](README.md) · Русский
 
-Минимальный быстрый лаунчер Minecraft **Java Edition для Windows x64**. Нативное окно WinForms, .NET 10, без Electron, WebView, сторонних NuGet-пакетов, новостей и рекламы. Поддерживаются стабильные версии с 1.18, обычный Minecraft и установка загрузчиков Fabric / Quilt. Отдельные моды добавляются в папку выбранного профиля.
+Минимальный быстрый лаунчер Minecraft **Java Edition для Windows и Arch Linux x86_64**. Используются нативные окна WinForms/Avalonia и .NET 10, без Electron, WebView, новостей и рекламы. Поддерживаются стабильные версии с 1.18, обычный Minecraft и установка загрузчиков Fabric / Quilt. Отдельные моды добавляются в папку выбранного профиля.
 
 **[Скачать установщик для Windows](https://github.com/deluti/eclipse-launcher/releases/latest/download/eclipse-launcher-windows-x86.exe)** · [Все релизы](https://github.com/deluti/eclipse-launcher/releases)
 
@@ -133,7 +137,7 @@ Refresh token и Minecraft access token сохраняются только в `
 
 ## Сборка и проверки
 
-Нужен .NET SDK 10 на Windows. Внешние пакеты не используются; `NuGet.Config` отключает источники пакетов.
+Нужен .NET SDK 10. Windows-интерфейс использует системный фреймворк, а Linux-интерфейс — зафиксированные пакеты Avalonia с NuGet.org.
 
 ```powershell
 .\build.ps1 -Test
@@ -180,10 +184,12 @@ dotnet run --project tests/Eclipse.Tests -c Release -- --prepare-only 26.3 artif
 Установщик собирается с помощью [Inno Setup 6/7](https://jrsoftware.org/isinfo.php):
 
 ```powershell
-.\tools\Build-WindowsRelease.ps1 -Version 0.3.0
+.\tools\Build-WindowsRelease.ps1 -Version 0.6.0
 ```
 
-Скрипт скачивает официальные runtime-пакеты .NET 10.0.15 с NuGet.org, публикует self-contained `win-x86` с ReadyToRun, добавляет лицензии .NET и создаёт `artifacts/release/eclipse-launcher-windows-x86.exe` и `SHA256SUMS.txt`. `-IsccPath` позволяет указать компилятор вручную. Игровые данные и сессии не упаковываются. GitHub Actions собирает установщик вручную через **Actions → Windows release** или при отправке тега `v<версия>`; тег также создаёт релиз с установщиком и SHA-256.
+Скрипт скачивает официальные runtime-пакеты .NET 10.0.15 с NuGet.org, публикует self-contained `win-x86`, добавляет лицензии .NET и создаёт `artifacts/release/eclipse-launcher-windows-x86.exe` и `SHA256SUMS.txt`. `-IsccPath` позволяет указать компилятор вручную. Игровые данные и сессии не упаковываются.
+
+Linux-архив собирается командой `./tools/Build-LinuxRelease.ps1 -Version 0.6.0`, а настоящий пакет Arch — `bash ./tools/Build-ArchPackage.sh 0.6.0` в чистом контейнере `archlinux:base-devel`. GitHub Actions запускает smoke-тесты ELF и окна через Xvfb, затем публикует Windows, portable Linux и `.pkg.tar.zst` из одного тега через **Actions → Release**.
 
 ## Справочные источники
 

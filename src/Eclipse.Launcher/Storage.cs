@@ -15,7 +15,14 @@ public sealed class AppPaths
         if (!string.IsNullOrEmpty(relative)) _ = SafeChild(Root, relative);
         activeGameDirectory = relative;
     }
-    public AppPaths(string root) { Root = Path.GetFullPath(root); Directory.CreateDirectory(Root); }
+    public AppPaths(string root)
+    {
+        Root = Path.GetFullPath(root);
+        var existed = Directory.Exists(Root);
+        Directory.CreateDirectory(Root);
+        if (OperatingSystem.IsLinux() && !existed)
+            File.SetUnixFileMode(Root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+    }
     public string FilePath(string name) => Path.Combine(Root, name);
     public static string SafeChild(string root, string relative)
     {
@@ -59,7 +66,8 @@ public sealed class Settings
     public string Nickname { get; set; } = "Player";
 }
 
-// DPAPI binds credentials to this Windows user. No plaintext token file is written.
+// Windows uses DPAPI. Unix keeps the credential file private to the current user
+// (0600); no service, keyring helper or background process is required.
 public static class SecretStore
 {
     [StructLayout(LayoutKind.Sequential)] private struct Blob { public int Length; public IntPtr Data; }
@@ -99,15 +107,21 @@ public static class SecretStore
         try
         {
             var temp = path + ".tmp";
-            File.WriteAllBytes(temp, Transform(bytes, true));
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllBytes(temp, OperatingSystem.IsWindows() ? Transform(bytes, true) : bytes);
+            if (OperatingSystem.IsLinux())
+                File.SetUnixFileMode(temp, UnixFileMode.UserRead | UnixFileMode.UserWrite);
             File.Move(temp, path, true);
+            if (OperatingSystem.IsLinux())
+                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
         finally { CryptographicOperations.ZeroMemory(bytes); }
     }
     public static T? Load<T>(string path)
     {
         if (!File.Exists(path)) return default;
-        var bytes = Transform(File.ReadAllBytes(path), false);
+        var stored = File.ReadAllBytes(path);
+        var bytes = OperatingSystem.IsWindows() ? Transform(stored, false) : stored;
         try { return JsonSerializer.Deserialize<T>(bytes); }
         finally { CryptographicOperations.ZeroMemory(bytes); }
     }

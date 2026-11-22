@@ -23,7 +23,10 @@ public sealed class InstallPlan
     public List<string> JvmArguments { get; set; } = [];
     public List<string> GameArguments { get; set; } = [];
     public List<DownloadFile> Files { get; set; } = [];
+    public List<RuntimeLink> RuntimeLinks { get; set; } = [];
 }
+
+public sealed record RuntimeLink(string RelativePath, string Target);
 
 public sealed class Minecraft(HttpClient http, AppPaths paths)
 {
@@ -42,6 +45,11 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
     internal event Action? GameStarted;
     public const string ManifestUrl = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
     private const string RuntimeUrl = "https://piston-meta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
+    private static bool Linux => OperatingSystem.IsLinux();
+    private static string RuntimePlatform => Linux ? "linux" : "windows-x64";
+    private static string MetadataOs => Linux ? "linux" : "windows";
+    private static string JavaBinary => Linux ? "bin/java" : "bin/javaw.exe";
+    private static string NativeSuffix => Linux ? ".so" : ".dll";
 
     public async Task<JsonElement> VersionsAsync(bool refresh, CancellationToken ct)
     {
@@ -63,9 +71,9 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
     }
     private async Task<InstallPlan> PrepareCoreAsync(string version, IProgress<string> progress, CancellationToken ct)
     {
-        // A 32-bit launcher can start the separate 64-bit Java process on 64-bit Windows.
-        if (RuntimeInformation.OSArchitecture != Architecture.X64)
-            throw new PlatformNotSupportedException(L.T("Для запуска Minecraft требуется 64-битная Windows (x64)."));
+        // A 32-bit Windows launcher can start the separate 64-bit Java process.
+        if ((!OperatingSystem.IsWindows() && !Linux) || RuntimeInformation.OSArchitecture != Architecture.X64)
+            throw new PlatformNotSupportedException(L.T("Для запуска Minecraft требуется 64-битная Windows или Linux (x64)."));
         if (!Regex.IsMatch(version, "\\A[A-Za-z0-9_.+-]+\\z")) throw new InvalidDataException(L.T("Недопустимая версия."));
         var planPath = AppPaths.SafeChild(paths.Root, $"plans/{version}.json");
         var downloads = cachedDownloads ??= new Downloads(http, paths);
@@ -76,6 +84,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
         if (plan is { Format: 1 } && plan.Version == version)
         {
             await downloads.EnsureAllAsync(plan.Files, progress, ct).ConfigureAwait(false);
+            EnsureRuntimeLinks(plan);
             if (plan.NativeFiles.Any(f => !File.Exists(AppPaths.SafeChild(paths.Root, f)))) ExtractNatives(plan);
             RememberPlan(planPath, plan);
             return plan;
@@ -129,7 +138,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
                 plan.Files.Add(FromMetadata(artifact, relative));
                 plan.ClassPath.Add(relative);
             }
-            if (library.TryGetProperty("natives", out var natives) && natives.TryGetProperty("windows", out var classifier))
+            if (library.TryGetProperty("natives", out var natives) && natives.TryGetProperty(MetadataOs, out var classifier))
             {
                 var key = classifier.GetString()!.Replace("${arch}", "64");
                 var native = libDownloads.GetProperty("classifiers").GetProperty(key);
@@ -158,20 +167,24 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
         progress.Report(L.T("Подготовка официальной Java…"));
         var component = javaVersion.Text("component");
         var runtimes = await Network.JsonAsync(http, HttpMethod.Get, RuntimeUrl, null, null, ct).ConfigureAwait(false);
-        var runtime = runtimes.GetProperty("windows-x64").GetProperty(component).EnumerateArray().FirstOrDefault();
-        if (runtime.ValueKind == JsonValueKind.Undefined) throw new NotSupportedException(L.T("Mojang не опубликовала нужную Java для Windows x64."));
+        var runtime = runtimes.GetProperty(RuntimePlatform).GetProperty(component).EnumerateArray().FirstOrDefault();
+        if (runtime.ValueKind == JsonValueKind.Undefined) throw new NotSupportedException(L.T("Mojang не опубликовала нужную Java для этой платформы x64."));
         var runtimeManifest = runtime.GetProperty("manifest");
         var runtimeJson = await ReadVerifiedJsonAsync(runtimeManifest.Text("url"), runtimeManifest.Text("sha1"), ct).ConfigureAwait(false);
         var runtimeRoot = $"runtime/{component}";
-        plan.JavaRelativePath = runtimeRoot + "/bin/javaw.exe";
+        plan.JavaRelativePath = runtimeRoot + "/" + JavaBinary;
         foreach (var file in runtimeJson.GetProperty("files").EnumerateObject())
         {
             switch (file.Value.Text("type"))
             {
                 case "file":
-                    plan.Files.Add(FromMetadata(file.Value.GetProperty("downloads").GetProperty("raw"), runtimeRoot + "/" + file.Name));
+                    plan.Files.Add(FromMetadata(file.Value.GetProperty("downloads").GetProperty("raw"), runtimeRoot + "/" + file.Name,
+                        file.Value.TryGetProperty("executable", out var executable) && executable.GetBoolean()));
                     break;
                 case "directory": break;
+                case "link":
+                    plan.RuntimeLinks.Add(new(runtimeRoot + "/" + file.Name, file.Value.Text("target")));
+                    break;
                 default: throw new NotSupportedException(L.T("Неизвестный тип файла в описании Java. Установка остановлена."));
             }
         }
@@ -183,6 +196,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
             plan.JvmArguments.Add(log.Text("argument").Replace("${path}", AppPaths.SafeChild(paths.Root, relative)));
         }
         await downloads.EnsureAllAsync(plan.Files, progress, ct).ConfigureAwait(false);
+        EnsureRuntimeLinks(plan);
         ExtractNatives(plan);
         JsonStore.Write(planPath, plan);
         RememberPlan(planPath, plan);
@@ -200,8 +214,8 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
         return JsonSerializer.Deserialize<JsonElement>(bytes);
     }
 
-    private static DownloadFile FromMetadata(JsonElement data, string relative) =>
-        new(data.Text("url"), relative, data.Text("sha1"), data.GetProperty("size").GetInt64());
+    private static DownloadFile FromMetadata(JsonElement data, string relative, bool executable = false) =>
+        new(data.Text("url"), relative, data.Text("sha1"), data.GetProperty("size").GetInt64(), executable);
 
     internal static bool Allowed(JsonElement value)
     {
@@ -212,7 +226,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
             var matches = true;
             if (rule.TryGetProperty("os", out var os))
             {
-                if (os.TryGetProperty("name", out var name) && name.GetString() != "windows") matches = false;
+                if (os.TryGetProperty("name", out var name) && name.GetString() != MetadataOs) matches = false;
                 if (os.TryGetProperty("arch", out var arch) && arch.GetString() != "x86_64" && arch.GetString() != "amd64") matches = false;
                 if (os.TryGetProperty("version", out var version) && !Regex.IsMatch(Environment.OSVersion.Version.ToString(), version.GetString()!)) matches = false;
                 if (os.TryGetProperty("versionRange", out var range))
@@ -244,6 +258,28 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
         return result;
     }
 
+    private void EnsureRuntimeLinks(InstallPlan plan)
+    {
+        if (!Linux || plan.RuntimeLinks.Count == 0) return;
+        var runtimeRoot = Path.GetDirectoryName(Path.GetDirectoryName(AppPaths.SafeChild(paths.Root, plan.JavaRelativePath)))!;
+        var rootPrefix = Path.GetFullPath(runtimeRoot).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        foreach (var link in plan.RuntimeLinks)
+        {
+            var destination = AppPaths.SafeChild(paths.Root, link.RelativePath);
+            var resolvedTarget = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(destination)!, link.Target));
+            if (!resolvedTarget.StartsWith(rootPrefix, StringComparison.Ordinal))
+                throw new InvalidDataException(L.T("Ссылка Java выходит за пределы официального runtime."));
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            string? current = null;
+            try { current = new FileInfo(destination).LinkTarget ?? new DirectoryInfo(destination).LinkTarget; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            if (current == link.Target) continue;
+            if (current != null || File.Exists(destination)) File.Delete(destination);
+            else if (Directory.Exists(destination)) Directory.Delete(destination);
+            File.CreateSymbolicLink(destination, link.Target);
+        }
+    }
+
     private void ExtractNatives(InstallPlan plan)
     {
         plan.NativeFiles.Clear();
@@ -252,7 +288,9 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
             using var archive = ZipFile.OpenRead(AppPaths.SafeChild(paths.Root, relative));
             foreach (var entry in archive.Entries)
             {
-                if (!entry.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) continue;
+                var native = entry.FullName.EndsWith(NativeSuffix, StringComparison.OrdinalIgnoreCase)
+                    || Linux && entry.FullName.Contains(".so.", StringComparison.OrdinalIgnoreCase);
+                if (!native) continue;
                 var targetRelative = $"game/versions/{(string.IsNullOrEmpty(plan.BaseVersion) ? plan.Version : plan.BaseVersion)}/natives/" + entry.FullName;
                 var target = AppPaths.SafeChild(paths.Root, targetRelative);
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
@@ -363,6 +401,7 @@ public sealed class Minecraft(HttpClient http, AppPaths paths)
         jvm.Add(plan.MainClass);
         // JVM argument file avoids Windows' command line limit; it contains no account credentials.
         var argFile = AppPaths.SafeChild(paths.Root, $"game/versions/{plan.Version}/jvm.args");
+        Directory.CreateDirectory(Path.GetDirectoryName(argFile)!);
         await File.WriteAllLinesAsync(argFile, jvm.Select(QuoteJavaArgument), new UTF8Encoding(false), ct).ConfigureAwait(false);
         var info = new ProcessStartInfo(AppPaths.SafeChild(paths.Root, plan.JavaRelativePath))
         {

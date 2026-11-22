@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Eclipse Launcher
+Comment=Fast Minecraft Java Edition launcher
+Exec=eclipse-launcher
+Icon=/opt/eclipse-launcher/Eclipse.ico
+Terminal=false
+Categories=Game;
+StartupNotify=true
+StartupWMClass=Eclipse

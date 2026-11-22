@@ -2,7 +2,7 @@ param(
     [string]$SetupPath,
     [string]$LegacyDirectory,
     [string]$TestHostPath,
-    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$ExpectedVersion = '0.5.1',
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$ExpectedVersion = '0.6.0',
     [ValidatePattern('^\d+\.\d+\.\d+$')][string]$LegacyVersion = '0.5.0'
 )
 $ErrorActionPreference = 'Stop'

@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Eclipse</AssemblyName>
+    <RootNamespace>Eclipse</RootNamespace>
+    <Version>0.6.0</Version>
+    <Product>Eclipse Launcher</Product>
+    <Company>deluti</Company>
+    <Description>Fast Minecraft Java Edition launcher for Linux</Description>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <TieredCompilation>true</TieredCompilation>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Eclipse.Launcher\Authentication.cs" Link="Core\Authentication.cs" />
+    <Compile Include="..\Eclipse.Launcher\Downloads.cs" Link="Core\Downloads.cs" />
+    <Compile Include="..\Eclipse.Launcher\GameProfiles.cs" Link="Core\GameProfiles.cs" />
+    <Compile Include="..\Eclipse.Launcher\LaunchPolicy.cs" Link="Core\LaunchPolicy.cs" />
+    <Compile Include="..\Eclipse.Launcher\Minecraft.cs" Link="Core\Minecraft.cs" />
+    <Compile Include="..\Eclipse.Launcher\ModLoaders.cs" Link="Core\ModLoaders.cs" />
+    <Compile Include="..\Eclipse.Launcher\Network.cs" Link="Core\Network.cs" />
+    <Compile Include="..\Eclipse.Launcher\OAuthRegistration.cs" Link="Core\OAuthRegistration.cs" />
+    <Compile Include="..\Eclipse.Launcher\OfflineAccount.cs" Link="Core\OfflineAccount.cs" />
+    <Compile Include="..\Eclipse.Launcher\PerformanceJournal.cs" Link="Core\PerformanceJournal.cs" />
+    <Compile Include="..\Eclipse.Launcher\PlaytimeCounter.cs" Link="Core\PlaytimeCounter.cs" />
+    <Compile Include="..\Eclipse.Launcher\Storage.cs" Link="Core\Storage.cs" />
+    <Compile Include="..\Eclipse.Launcher\WindowsGraphics.cs" Link="Core\PlatformGraphics.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\Eclipse.Launcher\Localization\en.json" Link="Localization\en.json" LogicalName="Eclipse.Localization.en.json" />
+    <AvaloniaResource Include="..\Eclipse.Launcher\Assets\Monocraft.ttf" Link="Assets\Monocraft.ttf" />
+    <AvaloniaResource Include="..\Eclipse.Launcher\Assets\steve.png" Link="Assets\steve.png" />
+    <AvaloniaResource Include="..\Eclipse.Launcher\Assets\Eclipse.ico" Link="Assets\Eclipse.ico" />
+    <None Include="..\Eclipse.Launcher\Assets\Eclipse.ico" Link="Eclipse.ico" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Eclipse.Launcher\launcher-config.json" Link="launcher-config.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Eclipse.Launcher\Assets\Monocraft-LICENSE.txt" Link="Monocraft-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

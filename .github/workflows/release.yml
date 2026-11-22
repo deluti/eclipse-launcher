@@ -1,4 +1,4 @@
-name: Windows release
+name: Release
 
 on:
   workflow_dispatch:
@@ -27,12 +27,12 @@ jobs:
       - name: Build installer
         shell: pwsh
         run: |
-          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.5.1' }
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.6.0' }
           ./tools/Build-WindowsRelease.ps1 -Version $version
       - name: Verify normal published startup
         shell: pwsh
         run: |
-          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.5.1' }
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.6.0' }
           ./tools/Test-PublishedStartup.ps1 -ExpectedVersion $version
       - uses: actions/upload-artifact@v4
         with:
@@ -40,16 +40,69 @@ jobs:
           path: |
             artifacts/release/eclipse-launcher-windows-x86.exe
             artifacts/release/SHA256SUMS.txt
+
+  linux-x64:
+    runs-on: ubuntu-latest
+    env:
+      AVALONIA_TELEMETRY_OPTOUT: '1'
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build portable Linux release
+        shell: pwsh
+        run: |
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.6.0' }
+          ./tools/Build-LinuxRelease.ps1 -Version $version
+      - name: Install smoke-test libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y file xvfb xauth libfontconfig1 libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1 libxkbcommon0 libice6 libsm6 libgl1 libwayland-client0
+      - name: Test native Linux startup
+        run: |
+          chmod +x artifacts/release/eclipse-launcher-linux-x64/Eclipse tools/Test-LinuxRelease.sh
+          ./tools/Test-LinuxRelease.sh
+      - name: Build native Arch package
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [ "$GITHUB_REF_TYPE" != tag ]; then version=0.6.0; fi
+          bash ./tools/Build-ArchPackage.sh "$version"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eclipse-launcher-linux-x64
+          path: |
+            artifacts/release/eclipse-launcher-linux-x64.tar.gz
+            artifacts/release/eclipse-launcher-linux-x64.pkg.tar.zst
+            artifacts/release/SHA256SUMS-linux.txt
+
+  publish:
+    if: github.ref_type == 'tag'
+    needs: [windows-x86, linux-x64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: eclipse-launcher-windows-x86
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: eclipse-launcher-linux-x64
+          path: dist
+      - name: Create combined checksums
+        working-directory: dist
+        run: |
+          rm -f SHA256SUMS.txt SHA256SUMS-linux.txt
+          sha256sum eclipse-launcher-windows-x86.exe eclipse-launcher-linux-x64.tar.gz eclipse-launcher-linux-x64.pkg.tar.zst > SHA256SUMS.txt
       - name: Publish release
         if: github.ref_type == 'tag'
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view $env:GITHUB_REF_NAME *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $env:GITHUB_REF_NAME artifacts/release/eclipse-launcher-windows-x86.exe artifacts/release/SHA256SUMS.txt --clobber
-          } else {
-            gh release create $env:GITHUB_REF_NAME artifacts/release/eclipse-launcher-windows-x86.exe artifacts/release/SHA256SUMS.txt --title "Eclipse Launcher $env:GITHUB_REF_NAME" --generate-notes
-          }
-          if ($LASTEXITCODE -ne 0) { throw 'Release upload failed' }
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --title "Eclipse Launcher $GITHUB_REF_NAME" --generate-notes
+          fi

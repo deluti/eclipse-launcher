@@ -100,6 +100,6 @@ internal sealed class GameProfiles(AppPaths paths)
         Version = profile.Id, BaseVersion = string.IsNullOrEmpty(source.BaseVersion) ? source.Version : source.BaseVersion,
         GameRelativeDirectory = profile.GameDirectory, JavaRelativePath = source.JavaRelativePath, JavaMajorVersion = source.JavaMajorVersion, MainClass = source.MainClass, AssetIndex = source.AssetIndex,
         ClassPath = [..source.ClassPath], NativeJars = [..source.NativeJars], NativeFiles = [..source.NativeFiles],
-        JvmArguments = [..source.JvmArguments], GameArguments = [..source.GameArguments], Files = [..source.Files]
+        JvmArguments = [..source.JvmArguments], GameArguments = [..source.GameArguments], Files = [..source.Files], RuntimeLinks = [..source.RuntimeLinks]
     };
 }

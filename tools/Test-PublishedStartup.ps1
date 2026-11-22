@@ -1,6 +1,6 @@
 param(
     [string]$PublishDirectory,
-    [string]$ExpectedVersion = '0.5.1',
+    [string]$ExpectedVersion = '0.6.0',
     [ValidateRange(20,120)][int]$Seconds = 30
 )
 $ErrorActionPreference='Stop'

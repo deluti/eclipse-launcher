@@ -1,0 +1,21 @@
+pkgname=eclipse-launcher-bin
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='Fast Minecraft Java Edition launcher'
+arch=('x86_64')
+url='https://github.com/deluti/eclipse-launcher'
+license=('custom')
+depends=('fontconfig' 'libx11' 'libxrandr' 'libxi' 'libxcursor' 'libxinerama' 'libxkbcommon' 'libice' 'libsm' 'mesa' 'wayland')
+provides=('eclipse-launcher')
+conflicts=('eclipse-launcher')
+options=('!strip')
+source=('eclipse-launcher-linux-x64.tar.gz')
+sha256sums=('@SHA256@')
+
+package() {
+  install -d "$pkgdir/opt/eclipse-launcher"
+  cp -a "$srcdir/eclipse-launcher-linux-x64/." "$pkgdir/opt/eclipse-launcher/"
+  install -Dm755 "$srcdir/eclipse-launcher-linux-x64/packaging/eclipse-launcher" "$pkgdir/usr/bin/eclipse-launcher"
+  install -Dm644 "$srcdir/eclipse-launcher-linux-x64/packaging/eclipse-launcher.desktop" "$pkgdir/usr/share/applications/eclipse-launcher.desktop"
+  install -Dm644 "$srcdir/eclipse-launcher-linux-x64/THIRD-PARTY.md" "$pkgdir/usr/share/licenses/$pkgname/THIRD-PARTY.md"
+}

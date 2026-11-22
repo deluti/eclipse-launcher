@@ -215,5 +215,10 @@
   "Нужна Java {0}; установленная Java несовместима. Повторите подготовку версии.": "Java {0} is required; the installed Java is incompatible. Prepare the version again.",
   "Повреждён исполняемый файл Java.": "The Java executable is damaged.",
   "Для Minecraft нужна Java Windows x64.": "Minecraft requires Windows x64 Java.",
+  "Для Minecraft нужна Java Linux x64.": "Minecraft requires Linux x64 Java.",
+  "Исполняемый файл Java не имеет права запуска.": "The Java executable is not marked as executable.",
+  "Для запуска Minecraft требуется 64-битная Windows или Linux (x64).": "Minecraft requires 64-bit Windows or Linux (x64).",
+  "Mojang не опубликовала нужную Java для этой платформы x64.": "Mojang has not published the required Java runtime for this x64 platform.",
+  "Ссылка Java выходит за пределы официального runtime.": "A Java runtime link points outside the official runtime.",
   "Профиль содержит запрещённый агент или вложенный файл JVM.": "The profile contains a prohibited agent or nested JVM argument file."
 }

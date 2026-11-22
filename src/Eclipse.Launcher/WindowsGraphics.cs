@@ -26,6 +26,7 @@ internal static class WindowsGraphics
         => Marshal.GetDelegateForFunctionPointer<T>(Marshal.ReadIntPtr(Marshal.ReadIntPtr(instance), slot * IntPtr.Size));
     internal static GraphicsReport Read(string? javaExecutable)
     {
+        if (!OperatingSystem.IsWindows()) return ReadLinux();
         var adapters = new List<GraphicsAdapter>();
         IntPtr factory = IntPtr.Zero;
         try
@@ -55,5 +56,32 @@ internal static class WindowsGraphics
         }
         catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or IOException) { }
         return new(adapters, preference);
+    }
+    private static GraphicsReport ReadLinux()
+    {
+        var adapters = new List<GraphicsAdapter>();
+        try
+        {
+            foreach (var card in Directory.EnumerateDirectories("/sys/class/drm", "card*", SearchOption.TopDirectoryOnly)
+                         .Where(path => !Path.GetFileName(path).Contains('-', StringComparison.Ordinal)))
+            {
+                var device = Path.Combine(card, "device");
+                if (!Directory.Exists(device)) continue;
+                static uint Hex(string path)
+                {
+                    var value = File.Exists(path) ? File.ReadAllText(path).Trim() : "0";
+                    return uint.TryParse(value.Replace("0x", "", StringComparison.OrdinalIgnoreCase), System.Globalization.NumberStyles.HexNumber,
+                        System.Globalization.CultureInfo.InvariantCulture, out var parsed) ? parsed : 0;
+                }
+                static ulong Number(string path) => File.Exists(path) && ulong.TryParse(File.ReadAllText(path).Trim(), out var value) ? value : 0;
+                var vendor = Hex(Path.Combine(device, "vendor"));
+                var id = Hex(Path.Combine(device, "device"));
+                var name = $"{Path.GetFileName(card)} · {vendor:x4}:{id:x4}";
+                adapters.Add(new(name, vendor, Number(Path.Combine(device, "mem_info_vram_total")), 0));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        var prime = Environment.GetEnvironmentVariable("DRI_PRIME") ?? Environment.GetEnvironmentVariable("__NV_PRIME_RENDER_OFFLOAD");
+        return new(adapters, string.IsNullOrEmpty(prime) ? "Linux default" : "PRIME offload: " + prime);
     }
 }

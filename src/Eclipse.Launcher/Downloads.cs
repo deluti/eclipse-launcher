@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace Eclipse;
 
-public sealed record DownloadFile(string Url, string RelativePath, string Sha1, long Size);
+public sealed record DownloadFile(string Url, string RelativePath, string Sha1, long Size, bool Executable = false);
 public sealed record FileReceipt(string Sha1, long Size, long Modified);
 
 public sealed class Downloads
@@ -68,9 +68,10 @@ public sealed class Downloads
             {
                 if (receipts.TryGetValue(file.RelativePath, out var receipt)
                     && receipt.Sha1.Equals(file.Sha1, StringComparison.OrdinalIgnoreCase)
-                    && receipt.Size == info.Length && receipt.Modified == info.LastWriteTimeUtc.Ticks) return;
+                    && receipt.Size == info.Length && receipt.Modified == info.LastWriteTimeUtc.Ticks)
+                { ApplyMode(file, target); return; }
                 Interlocked.Increment(ref HashedFiles);
-                if (await MatchesAsync(target, file.Sha1, ct).ConfigureAwait(false)) { Remember(file, target); return; }
+                if (await MatchesAsync(target, file.Sha1, ct).ConfigureAwait(false)) { ApplyMode(file, target); Remember(file, target); return; }
             }
         }
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
@@ -87,6 +88,7 @@ public sealed class Downloads
                 if (new FileInfo(temporary).Length != file.Size || !await MatchesAsync(temporary, file.Sha1, ct).ConfigureAwait(false))
                     throw new InvalidDataException(L.T("Контрольная сумма загрузки не совпала: ") + Path.GetFileName(target));
                 File.Move(temporary, target, true);
+                ApplyMode(file, target);
                 Remember(file, target);
                 Interlocked.Increment(ref DownloadedFiles);
                 return;
@@ -118,5 +120,11 @@ public sealed class Downloads
     {
         await using var stream = File.OpenRead(path);
         return Convert.ToHexString(await SHA1.HashDataAsync(stream, ct).ConfigureAwait(false)).Equals(sha1, StringComparison.OrdinalIgnoreCase);
+    }
+    private static void ApplyMode(DownloadFile file, string path)
+    {
+        if (!file.Executable || !OperatingSystem.IsLinux()) return;
+        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+            | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
     }
 }

@@ -1,12 +1,14 @@
 # Eclipse Launcher
 
-[Download for Windows](https://github.com/deluti/eclipse-launcher/releases/latest/download/eclipse-launcher-windows-x86.exe) · [Releases](https://github.com/deluti/eclipse-launcher/releases) · [Русский](README.ru.md)
+[Windows installer](https://github.com/deluti/eclipse-launcher/releases/latest/download/eclipse-launcher-windows-x86.exe) · [Arch Linux package](https://github.com/deluti/eclipse-launcher/releases/latest/download/eclipse-launcher-linux-x64.pkg.tar.zst) · [Linux portable](https://github.com/deluti/eclipse-launcher/releases/latest/download/eclipse-launcher-linux-x64.tar.gz) · [Releases](https://github.com/deluti/eclipse-launcher/releases) · [Русский](README.ru.md)
 
-A fast, native Minecraft **Java Edition** launcher for Windows. Built with C# / .NET 10 and WinForms, without Electron, WebView, ads or a news feed.
+A fast Minecraft **Java Edition** launcher for Windows and x86_64 Arch Linux derivatives, including Omarchy. Built with C# / .NET 10, WinForms on Windows and Avalonia on Linux, without Electron, WebView, ads or a news feed.
 
 ![Eclipse Launcher](PREVIEW/launcher-en.png)
 
 ## Install and play
+
+### Windows
 
 1. Download **eclipse-launcher-windows-x86.exe** from the latest release.
 2. Install Eclipse and open it from the Start menu.
@@ -14,6 +16,12 @@ A fast, native Minecraft **Java Edition** launcher for Windows. Built with C# / 
 4. Select a Minecraft version and press **PLAY**, or press **Space** on the home tab.
 
 The x86 launcher includes its own .NET runtime. Minecraft and the downloaded Java runtime require **Windows 10 2004+ or Windows 11 x64**. A separate .NET installation is unnecessary for release installers. Installation works for the current user without administrator rights; the desktop shortcut is optional.
+
+### Arch Linux and derivatives
+
+Download `eclipse-launcher-linux-x64.pkg.tar.zst` and install it with `sudo pacman -U ./eclipse-launcher-linux-x64.pkg.tar.zst`, or extract the portable `eclipse-launcher-linux-x64.tar.gz` and run `./Eclipse` without installing anything. The release is self-contained; a system .NET runtime is unnecessary.
+
+Linux data is stored in `${XDG_DATA_HOME:-$HOME/.local/share}/eclipse-launcher`. Set `ECLIPSE_DATA_DIR` to override it. The launcher downloads Mojang's official Linux x64 Java selected by Minecraft metadata, handles executable files and runtime symbolic links, and supports both X11 and Wayland. Microsoft session data is restricted to the current Unix user (`0600`).
 
 English is the default, including when upgrading older settings. Choose **English** or **Русский** under **Settings → Language**. The language applies immediately and is remembered. Other settings still use **Save**.
 
@@ -63,15 +71,15 @@ Data is stored in `data` beside `Eclipse.exe`:
 | `data/instances/<profile-id>` | Modded profile game directories |
 | `data/playtime.json` | Total recorded game time |
 | `data/settings.json` | Launcher preferences, including language |
-| `data/session.bin` | Microsoft session encrypted with Windows DPAPI |
+| `data/session.bin` | Microsoft session: Windows DPAPI, or a Linux user-only file (`0600`) |
 
 Use `Eclipse.exe --data-dir "D:\MinecraftData"` for a custom directory. Updates preserve this choice. The existing `%APPDATA%/.minecraft` folder and its accounts are not imported or modified.
 
-Tokens are encrypted for the current Windows user. The game receives the access token as a process argument when required; it is excluded from the JVM argument file and redacted in launcher logs.
+On Windows, tokens are encrypted for the current user with DPAPI. On Linux, the session file is readable and writable only by the current Unix user. The game receives the access token as a process argument when required; it is excluded from the JVM argument file and redacted in launcher logs.
 
 ## Build and test
 
-Requirements: Windows and the .NET 10 SDK. The application has no third-party NuGet dependencies. `NuGet.Config` disables package sources for normal development builds.
+Requirements: the .NET 10 SDK. The Windows UI uses only the platform framework; the native Linux UI uses pinned Avalonia packages from NuGet.org.
 
 ```powershell
 .\build.ps1 -Test
@@ -95,7 +103,7 @@ The development build in `artifacts/Eclipse` is framework-dependent and requires
 Install [Inno Setup 6 or 7](https://jrsoftware.org/isinfo.php), then run:
 
 ```powershell
-.\tools\Build-WindowsRelease.ps1 -Version 0.5.1
+.\tools\Build-WindowsRelease.ps1 -Version 0.6.0
 ```
 
 The script downloads official .NET 10.0.15 runtime packs from NuGet.org, publishes `win-x86` with normal JIT compilation for Eclipse (ReadyToRun is disabled for the launcher assembly), includes runtime/font notices, and produces:
@@ -103,7 +111,11 @@ The script downloads official .NET 10.0.15 runtime packs from NuGet.org, publish
 - `artifacts/release/eclipse-launcher-windows-x86.exe`
 - `artifacts/release/SHA256SUMS.txt`
 
-Use `-IsccPath` to select the Inno Setup compiler. Game files and personal sessions are never included. GitHub Actions builds tagged `v<version>` releases and supports manual builds through **Actions → Windows release**.
+Use `-IsccPath` to select the Inno Setup compiler. Game files and personal sessions are never included.
+
+### Linux and Arch package
+
+Run `./tools/Build-LinuxRelease.ps1 -Version 0.6.0` on Linux to create the self-contained x86_64 archive. `bash ./tools/Build-ArchPackage.sh 0.6.0` builds the native `.pkg.tar.zst` in a clean `archlinux:base-devel` container. GitHub Actions performs both builds, runs the binary and UI smoke tests on Linux, and publishes Windows and Linux assets from the same tag through **Actions → Release**.
 
 The integration script `tools/Test-WindowsUpgrade.ps1` verifies upgrades in isolated copies with a separate installer registration and no test shortcuts. Existing user installation metadata and its Start menu shortcut are checked for changes.
 `tools/Test-PublishedStartup.ps1` checks the actual published EXE for 30 seconds each with a clean local profile and a synthetic cached Microsoft skin/cape profile, then verifies normal exit. CI runs this before uploading any release.
